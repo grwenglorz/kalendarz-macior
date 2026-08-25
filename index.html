@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Maciory">
   <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300e676'/><text x='50' y='65' font-size='50' text-anchor='middle'>🐖</text></svg>">
   
-  <link rel="stylesheet" href="styles.css?v=20">
+  <link rel="stylesheet" href="styles.css?v=23">
 </head>
 <body>
 
@@ -88,10 +88,11 @@
 
         <div class="filter-chips">
           <button class="chip active" data-filter="all">Wszystkie</button>
+          <button class="chip" data-filter="postawiona">🐖 Postawiona</button>
           <button class="chip" data-filter="due_soon">🚨 Blisko porodu (&le; 7 dni)</button>
           <button class="chip" data-filter="pregnant">🤰 W ciąży</button>
           <button class="chip" data-filter="farrowing">🍼 Na porodówce</button>
-          <button class="chip" data-filter="done">✅ Wyproszone</button>
+          <button class="chip" data-filter="done">✅ Wyproszona</button>
         </div>
 
         <!-- LISTA MACIOR -->
@@ -212,6 +213,7 @@
         <div class="form-group">
           <label for="modal-sow-status">Status:</label>
           <select id="modal-sow-status" class="form-control">
+            <option value="postawiona">🐖 Postawiona</option>
             <option value="pregnant">🤰 W ciąży</option>
             <option value="farrowing">🍼 Na porodówce</option>
             <option value="done">✅ Wyproszona</option>
@@ -232,6 +234,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>

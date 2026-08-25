@@ -374,12 +374,13 @@ function renderSowsList() {
     if (!matchesSearch) return false;
 
     if (currentFilter === 'all') return true;
+    if (currentFilter === 'postawiona') return sow.status === 'postawiona';
     if (currentFilter === 'pregnant') return sow.status === 'pregnant';
     if (currentFilter === 'farrowing') return sow.status === 'farrowing';
     if (currentFilter === 'done') return sow.status === 'done';
     if (currentFilter === 'due_soon') {
       const daysLeft = calculateDaysRemaining(sow.coverageDate, sow.gestationDays);
-      return sow.status === 'pregnant' && daysLeft <= 7 && daysLeft >= 0;
+      return (sow.status === 'pregnant' || sow.status === 'postawiona') && daysLeft <= 7 && daysLeft >= 0;
     }
     return true;
   });
@@ -479,6 +480,7 @@ function renderSowCardHTML(sow) {
 
       <div class="sow-actions">
         <select class="form-control sow-status-select" style="padding:6px; font-size:0.82rem; width:auto; flex:1;">
+          <option value="postawiona" ${sow.status === 'postawiona' ? 'selected' : ''}>🐖 Postawiona</option>
           <option value="pregnant" ${sow.status === 'pregnant' ? 'selected' : ''}>🤰 W ciąży</option>
           <option value="farrowing" ${sow.status === 'farrowing' ? 'selected' : ''}>🍼 Na porodówce</option>
           <option value="done" ${sow.status === 'done' ? 'selected' : ''}>✅ Wyproszona</option>
@@ -493,6 +495,9 @@ function renderSowCardHTML(sow) {
 }
 
 function getStatusBadge(status, daysRemaining) {
+  if (status === 'postawiona') {
+    return `<span class="badge" style="background:#1e293b; color:#38bdf8; border:1px solid #0284c7;">🐖 Postawiona</span>`;
+  }
   if (status === 'done') {
     return `<span class="badge badge-done">✅ Wyproszona</span>`;
   }
@@ -635,20 +640,21 @@ function openSowModal(sowData = null) {
 
   form.reset();
 
-  if (sowData && sowData.id) {
+    if (sowData && sowData.id) {
     title.textContent = 'Edytuj Maciorę';
     document.getElementById('modal-sow-id').value = sowData.id;
     document.getElementById('modal-sow-name').value = sowData.name || '';
     document.getElementById('modal-sow-coverage').value = sowData.coverageDate || '';
     document.getElementById('modal-sow-days').value = sowData.gestationDays || 114;
     document.getElementById('modal-sow-pen').value = sowData.pen || '';
-    document.getElementById('modal-sow-status').value = sowData.status || 'pregnant';
+    document.getElementById('modal-sow-status').value = sowData.status || 'postawiona';
     document.getElementById('modal-sow-notes').value = sowData.notes || '';
   } else {
     title.textContent = 'Nowa Maciora w Rejestrze';
     document.getElementById('modal-sow-id').value = '';
     document.getElementById('modal-sow-coverage').value = sowData?.coverageDate || new Date().toISOString().split('T')[0];
     document.getElementById('modal-sow-days').value = sowData?.gestationDays || 114;
+    document.getElementById('modal-sow-status').value = 'postawiona';
   }
 
   modal.classList.add('active');
@@ -878,13 +884,13 @@ function renderMenuStats() {
   today.setHours(0, 0, 0, 0);
 
   const totalSows = sows.length;
-  const pregnantSows = sows.filter(s => s.status === 'pregnant').length;
+  const pregnantSows = sows.filter(s => s.status === 'pregnant' || s.status === 'postawiona').length;
   const farrowingSows = sows.filter(s => s.status === 'farrowing').length;
 
   // Najbliższy poród
   let nextFarrow = null;
   let nextDaysLeft = Infinity;
-  sows.filter(s => s.status === 'pregnant').forEach(sow => {
+  sows.filter(s => s.status === 'pregnant' || s.status === 'postawiona').forEach(sow => {
     const d = calculateDaysRemaining(sow.coverageDate, sow.gestationDays);
     if (d >= 0 && d < nextDaysLeft) {
       nextDaysLeft = d;
