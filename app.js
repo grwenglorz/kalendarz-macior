@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDataSyncListeners();
   registerServiceWorker();
   initYearCalendar();
+  setupNotificationListeners();
+  checkUpcomingFarrowingsAndNotify();
 
   const todayStr = new Date().toISOString().split('T')[0];
   const coverageInput = document.getElementById('calc-coverage-date');
@@ -945,3 +947,138 @@ function renderMenuStats() {
     }
   }
 }
+
+/* ==========================================================================
+   POWIADOMIENIA O PORODACH (3 DNI PRZED)
+   ========================================================================== */
+
+function setupNotificationListeners() {
+  const btnEnable = document.getElementById('btn-enable-notifications');
+  const btnTest = document.getElementById('btn-test-notification');
+
+  updateNotificationButtonState();
+
+  if (btnEnable) {
+    btnEnable.addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        showToast('Twoja przeglądarka nie obsługuje powiadomień.');
+        return;
+      }
+
+      try {
+        const permission = await Notification.requestPermission();
+        updateNotificationButtonState();
+        if (permission === 'granted') {
+          showToast('✅ Powiadomienia włączone!');
+          sendAppNotification('🔔 Powiadomienia włączone!', 'Będziesz otrzymywać przypomnienia na 3 dni przed porodem maciory.');
+          checkUpcomingFarrowingsAndNotify();
+        } else if (permission === 'denied') {
+          showToast('Zezwolenie na powiadomienia zostało zablokowane w przeglądarce.');
+        }
+      } catch (e) {
+        console.log('Błąd powiadomień:', e);
+      }
+    });
+  }
+
+  if (btnTest) {
+    btnTest.addEventListener('click', () => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') {
+        Notification.requestPermission().then(p => {
+          if (p === 'granted') {
+            updateNotificationButtonState();
+            sendAppNotification('🚨 Test: Poród za 3 dni!', 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Przygotuj porodówkę.');
+          } else {
+            showToast('Musisz najpierw zezwolić na powiadomienia!');
+          }
+        });
+      } else {
+        sendAppNotification('🚨 Test: Poród za 3 dni!', 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Przygotuj porodówkę.');
+      }
+    });
+  }
+}
+
+function updateNotificationButtonState() {
+  const btnText = document.getElementById('notif-btn-text');
+  const btnIcon = document.getElementById('notif-btn-icon');
+  const btnEnable = document.getElementById('btn-enable-notifications');
+
+  if (!btnText || !btnIcon || !btnEnable) return;
+
+  if (!('Notification' in window)) {
+    btnText.textContent = 'Powiadomienia niedostępne';
+    btnEnable.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === 'granted') {
+    btnIcon.textContent = '✅';
+    btnText.textContent = 'Powiadomienia są włączone';
+    btnEnable.style.backgroundColor = '#166534';
+    btnEnable.style.borderColor = '#15803d';
+  } else if (Notification.permission === 'denied') {
+    btnIcon.textContent = '❌';
+    btnText.textContent = 'Powiadomienia zablokowane';
+  } else {
+    btnIcon.textContent = '🔔';
+    btnText.textContent = 'Włącz powiadomienia na telefonie';
+  }
+}
+
+function sendAppNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  try {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, {
+          body,
+          icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2300e676"/><text x="50" y="65" font-size="50" text-anchor="middle">🐖</text></svg>',
+          badge: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2300e676"/><text x="50" y="65" font-size="50" text-anchor="middle">🐖</text></svg>',
+          vibrate: [200, 100, 200],
+          tag: 'farrowing-alert-' + Date.now(),
+          renotify: true
+        });
+      });
+    } else {
+      new Notification(title, {
+        body,
+        icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2300e676"/><text x="50" y="65" font-size="50" text-anchor="middle">🐖</text></svg>'
+      });
+    }
+  } catch (e) {
+    console.log('Błąd wysyłania powiadomienia:', e);
+  }
+}
+
+function checkUpcomingFarrowingsAndNotify() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  sows.filter(s => s.status === 'pregnant' || s.status === 'postawiona' || s.status === 'farrowing').forEach(sow => {
+    if (!sow.coverageDate) return;
+    const daysRemaining = calculateDaysRemaining(sow.coverageDate, sow.gestationDays);
+
+    if (daysRemaining <= 3 && daysRemaining >= 0) {
+      const notifKey = `notif_sent_${sow.id}_${todayStr}_${daysRemaining}`;
+      if (!localStorage.getItem(notifKey)) {
+        const covDate = new Date(sow.coverageDate + 'T00:00:00');
+        const farrowDate = addDays(covDate, sow.gestationDays || 114);
+        const farrowStr = `${String(farrowDate.getDate()).padStart(2,'0')}.${String(farrowDate.getMonth()+1).padStart(2,'0')}.${farrowDate.getFullYear()}`;
+
+        const alertTitle = daysRemaining === 0 
+          ? `🚨 PORÓD DZISIAJ: ${sow.name}!`
+          : `🚨 Za ${daysRemaining} dni poród: ${sow.name}!`;
+
+        const alertBody = `Kojec: ${sow.pen || 'Brak'} | Termin: ${farrowStr}. Przygotuj porodówkę!`;
+
+        sendAppNotification(alertTitle, alertBody);
+        localStorage.setItem(notifKey, '1');
+      }
+    }
+  });
+}
+
