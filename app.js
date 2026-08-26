@@ -886,8 +886,9 @@ function renderMenuStats() {
   today.setHours(0, 0, 0, 0);
 
   const totalSows = sows.length;
-  const pregnantSows = sows.filter(s => s.status === 'pregnant' || s.status === 'postawiona').length;
+  const pregnantSows = sows.filter(s => s.status === 'pregnant').length;
   const farrowingSows = sows.filter(s => s.status === 'farrowing').length;
+  const postawioneSows = sows.filter(s => s.status === 'postawiona').length;
 
   // Najbliższy poród
   let nextFarrow = null;
@@ -913,9 +914,9 @@ function renderMenuStats() {
       <div class="stat-card-value" style="color:var(--accent-blue);">${farrowingSows}</div>
       <div class="stat-card-label">Na porodówce</div>
     </div>
-    <div class="stat-card" style="border-color:${nextDaysLeft <= 7 ? 'var(--accent-red)' : 'var(--border-color)'};">
-      <div class="stat-card-value" style="color:${nextDaysLeft <= 7 ? 'var(--accent-red)' : 'var(--primary)'};">${nextFarrow ? nextDaysLeft + 'd' : '–'}</div>
-      <div class="stat-card-label">Do porodu</div>
+    <div class="stat-card">
+      <div class="stat-card-value" style="color:#38bdf8;">${postawioneSows}</div>
+      <div class="stat-card-label">Postawionych</div>
     </div>
   `;
 
