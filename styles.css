@@ -702,6 +702,26 @@ input[type="number"] {
   box-shadow: none;
 }
 
+.stat-card.clickable {
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease, background-color 0.15s ease;
+  user-select: none;
+}
+
+.stat-card.clickable:hover {
+  background-color: #1e293b;
+  border-color: #475569;
+}
+
+.stat-card.clickable:active {
+  transform: scale(0.97);
+}
+
+.stat-card.active {
+  border-color: var(--primary) !important;
+  background-color: rgba(22, 163, 74, 0.12) !important;
+}
+
 .stat-card-value {
   font-size: 1.8rem;
   font-weight: 800;

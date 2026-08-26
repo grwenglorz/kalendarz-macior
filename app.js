@@ -704,7 +704,7 @@ function openSowModal(sowData = null) {
 
   form.reset();
 
-    if (sowData && sowData.id) {
+  if (sowData && sowData.id) {
     title.textContent = 'Edytuj Maciorę';
     document.getElementById('modal-sow-id').value = sowData.id;
     document.getElementById('modal-sow-name').value = sowData.name || '';
@@ -712,13 +712,16 @@ function openSowModal(sowData = null) {
     document.getElementById('modal-sow-days').value = sowData.gestationDays || 114;
     document.getElementById('modal-sow-pen').value = sowData.pen || '';
     document.getElementById('modal-sow-status').value = sowData.status || 'postawiona';
-    document.getElementById('modal-sow-notes').value = sowData.notes || '';
+    const notesEl = document.getElementById('modal-sow-notes');
+    if (notesEl) notesEl.value = sowData.notes || '';
   } else {
     title.textContent = 'Nowa Maciora w Rejestrze';
     document.getElementById('modal-sow-id').value = '';
     document.getElementById('modal-sow-coverage').value = sowData?.coverageDate || new Date().toISOString().split('T')[0];
     document.getElementById('modal-sow-days').value = sowData?.gestationDays || 114;
     document.getElementById('modal-sow-status').value = 'postawiona';
+    const notesEl = document.getElementById('modal-sow-notes');
+    if (notesEl) notesEl.value = '';
   }
 
   modal.classList.add('active');
@@ -736,7 +739,8 @@ function saveSowFromModal() {
   const gestationDays = parseInt(document.getElementById('modal-sow-days').value) || 114;
   const pen = document.getElementById('modal-sow-pen').value.trim();
   const status = document.getElementById('modal-sow-status').value;
-  const notes = document.getElementById('modal-sow-notes').value.trim();
+  const notesEl = document.getElementById('modal-sow-notes');
+  const notes = notesEl ? notesEl.value.trim() : '';
 
   if (!name || !coverageDate) {
     showToast('Wypełnij nazwę maciory i datę pokrycia!');
@@ -1195,30 +1199,39 @@ function saveTreatmentsData() {
   renderTreatmentsList();
 }
 
+function switchFieldTab(targetTab) {
+  const fieldNavItems = document.querySelectorAll('.nav-item-fields');
+  fieldNavItems.forEach(i => {
+    if (i.dataset.fieldTab === targetTab) i.classList.add('active');
+    else i.classList.remove('active');
+  });
+
+  document.querySelectorAll('#screen-fields .tab-pane').forEach(p => p.classList.remove('active'));
+  const targetSection = document.getElementById(`tab-${targetTab}`);
+  if (targetSection) targetSection.classList.add('active');
+
+  if (targetTab === 'fields-all') renderFieldsList();
+  if (targetTab === 'fields-menu') renderFieldsStats();
+}
+
 function setupFieldsModuleListeners() {
   // Nawigacja dolna w module pól
   const fieldNavItems = document.querySelectorAll('.nav-item-fields');
   fieldNavItems.forEach(item => {
     item.addEventListener('click', () => {
       const targetTab = item.dataset.fieldTab;
-      fieldNavItems.forEach(i => i.classList.remove('active'));
-      item.classList.add('active');
-
-      document.querySelectorAll('#screen-fields .tab-pane').forEach(p => p.classList.remove('active'));
-      const targetSection = document.getElementById(`tab-${targetTab}`);
-      if (targetSection) targetSection.classList.add('active');
-
-      if (targetTab === 'fields-list') renderFieldsList();
-      if (targetTab === 'treatments-list') renderTreatmentsList();
+      switchFieldTab(targetTab);
     });
   });
 
   // Przyciski dodawania
   const btnAddField = document.getElementById('btn-add-field-main');
+  const btnAddFieldMenu = document.getElementById('btn-add-field-menu');
   const btnAddTreatmentMain = document.getElementById('btn-add-treatment-main');
   const btnAddTreatmentQuick = document.getElementById('btn-add-treatment-quick');
 
   if (btnAddField) btnAddField.addEventListener('click', () => openFieldModal());
+  if (btnAddFieldMenu) btnAddFieldMenu.addEventListener('click', () => openFieldModal());
   if (btnAddTreatmentMain) btnAddTreatmentMain.addEventListener('click', () => openTreatmentModal());
   if (btnAddTreatmentQuick) btnAddTreatmentQuick.addEventListener('click', () => openTreatmentModal());
 
@@ -1244,6 +1257,17 @@ function setupFieldsModuleListeners() {
   }
   if (btnCloseTreatment) btnCloseTreatment.addEventListener('click', closeTreatmentModal);
 
+  // Dynamiczne podpowiedzi odmian w zależności od wpisanej uprawy
+  const cropInput = document.getElementById('modal-field-crop');
+  if (cropInput) {
+    cropInput.addEventListener('input', () => {
+      updateVarietySuggestions(cropInput.value);
+    });
+    cropInput.addEventListener('change', () => {
+      updateVarietySuggestions(cropInput.value);
+    });
+  }
+
   // Wyszukiwarki
   const fieldSearch = document.getElementById('field-search-input');
   if (fieldSearch) fieldSearch.addEventListener('input', renderFieldsList);
@@ -1252,32 +1276,156 @@ function setupFieldsModuleListeners() {
   if (treatmentSearch) treatmentSearch.addEventListener('input', renderTreatmentsList);
 }
 
+const CROP_VARIETIES = {
+  pszenica: [
+    'RGT Kilimanjaro', 'Euforia', 'Formacja', 'Hondia', 'Artist', 'KWS Emil',
+    'KWS Donovan', 'Symetria', 'Baryton', 'Tybalt', 'Goplana', 'Harenda', 'KWS Olympos', 'Wilejka'
+  ],
+  rzepak: [
+    'LG Aviron', 'DK Exstorm', 'DK Exsteel', 'KWS Umberto', 'Architect', 'Bumblebee',
+    'Ambassador', 'Crotora', 'Tigris', 'PT303', 'Feliciano KWS', 'Duke'
+  ],
+  kukurydza: [
+    'Pioneer P8834', 'Pioneer P9903', 'DKC 3595', 'DKC 3939', 'KWS Gusano',
+    'KWS Figaro', 'LG 31.250', 'Huligan', 'Mas 24.C', 'RGT Exxon', 'P9241'
+  ],
+  jeczmien_ozimy: [
+    'KWS Higgins', 'Jakubus', 'KWS Kosmos', 'Zenek', 'Mirabelle', 'Melia', 'Titus', 'Zita', 'Valerie'
+  ],
+  jeczmien: [
+    'KWS Cantton', 'RGT Planet', 'Laureate', 'Soldo', 'Eusebio', 'Farmer', 'Pilote', 'Ella'
+  ],
+  owies: [
+    'Bingo', 'Kozak', 'Figaro', 'Reflex', 'Romulus', 'Gniady', 'Panteon', 'Nawigator'
+  ]
+};
+
+function updateVarietySuggestions(cropName) {
+  const datalist = document.getElementById('variety-suggestions');
+  if (!datalist) return;
+
+  const c = (cropName || '').toLowerCase();
+  let varieties = [];
+
+  if (c.includes('pszenic')) {
+    varieties = CROP_VARIETIES.pszenica;
+  } else if (c.includes('rzepak')) {
+    varieties = CROP_VARIETIES.rzepak;
+  } else if (c.includes('kukurydz')) {
+    varieties = CROP_VARIETIES.kukurydza;
+  } else if ((c.includes('jęczmień') || c.includes('jeczmien')) && c.includes('ozim')) {
+    varieties = CROP_VARIETIES.jeczmien_ozimy;
+  } else if (c.includes('jęczmień') || c.includes('jeczmien')) {
+    varieties = CROP_VARIETIES.jeczmien;
+  } else if (c.includes('owie') || c.includes('ows')) {
+    varieties = CROP_VARIETIES.owies;
+  } else {
+    varieties = [...CROP_VARIETIES.pszenica, ...CROP_VARIETIES.rzepak, ...CROP_VARIETIES.kukurydza];
+  }
+
+  datalist.innerHTML = varieties.map(v => `<option value="${escapeHTML(v)}">`).join('');
+}
+
+let currentFieldCropFilter = 'all';
+
+function setFieldCropFilter(cropKey, switchTab = true) {
+  currentFieldCropFilter = cropKey;
+  renderFieldsStats();
+  renderFieldsList();
+  if (switchTab) {
+    switchFieldTab('fields-all');
+  }
+}
+
+function filterFieldByCrop(f, filterKey) {
+  if (!filterKey || filterKey === 'all') return true;
+  const c = (f.crop || '').toLowerCase();
+  if (filterKey === 'pszenica') return c.includes('pszenic');
+  if (filterKey === 'rzepak') return c.includes('rzepak');
+  if (filterKey === 'kukurydza') return c.includes('kukurydz');
+  if (filterKey === 'jeczmien') return c.includes('jęczmień') || c.includes('jeczmien');
+  if (filterKey === 'owies') return c.includes('owie') || c.includes('ows');
+  return true;
+}
+
+function getCropFilterName(filterKey) {
+  switch(filterKey) {
+    case 'pszenica': return 'Pszenica';
+    case 'rzepak': return 'Rzepak';
+    case 'kukurydza': return 'Kukurydza';
+    case 'jeczmien': return 'Jęczmień';
+    case 'owies': return 'Owies';
+    default: return 'Wszystkie';
+  }
+}
+
+function getCropDefaultName(filterKey) {
+  switch(filterKey) {
+    case 'pszenica': return 'Pszenica';
+    case 'rzepak': return 'Rzepak';
+    case 'kukurydza': return 'Kukurydza';
+    case 'jeczmien': return 'Jęczmień';
+    case 'owies': return 'Owies';
+    default: return '';
+  }
+}
+
 function renderFieldsStats() {
   const statsContainer = document.getElementById('fields-stats');
   if (!statsContainer) return;
 
   const totalArea = fields.reduce((sum, f) => sum + (parseFloat(f.areaHa) || 0), 0).toFixed(2);
   const totalFields = fields.length;
-  const totalTreatments = treatments.length;
+  
+  const wheatFields = fields.filter(f => (f.crop || '').toLowerCase().includes('pszenic')).length;
+  const rapeFields = fields.filter(f => (f.crop || '').toLowerCase().includes('rzepak')).length;
+  const cornFields = fields.filter(f => (f.crop || '').toLowerCase().includes('kukurydz')).length;
+  const barleyFields = fields.filter(f => {
+    const c = (f.crop || '').toLowerCase();
+    return c.includes('jęczmień') || c.includes('jeczmien');
+  }).length;
+  const oatFields = fields.filter(f => {
+    const c = (f.crop || '').toLowerCase();
+    return c.includes('owie') || c.includes('ows');
+  }).length;
 
   statsContainer.innerHTML = `
-    <div class="stat-card">
+    <div class="stat-card clickable ${currentFieldCropFilter === 'all' ? 'active' : ''}" data-crop-filter="all">
       <div class="stat-card-value" style="color:#eab308;">${totalArea} ha</div>
       <div class="stat-card-label">Łączny Areał</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card clickable ${currentFieldCropFilter === 'all' ? 'active' : ''}" data-crop-filter="all">
       <div class="stat-card-value">${totalFields}</div>
-      <div class="stat-card-label">Działek / Pól</div>
+      <div class="stat-card-label">Wszystkie Działki</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-card-value" style="color:var(--accent-blue);">${totalTreatments}</div>
-      <div class="stat-card-label">Wykonanych Oprysków</div>
+    <div class="stat-card clickable ${currentFieldCropFilter === 'pszenica' ? 'active' : ''}" data-crop-filter="pszenica">
+      <div class="stat-card-value" style="color:#38bdf8;">${wheatFields}</div>
+      <div class="stat-card-label">Pola z pszenicą</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-card-value" style="color:var(--primary);">${fields.filter(f => f.crop).length}</div>
-      <div class="stat-card-label">Obsianych Pól</div>
+    <div class="stat-card clickable ${currentFieldCropFilter === 'rzepak' ? 'active' : ''}" data-crop-filter="rzepak">
+      <div class="stat-card-value" style="color:#22c55e;">${rapeFields}</div>
+      <div class="stat-card-label">Pola z rzepakiem</div>
+    </div>
+    <div class="stat-card clickable ${currentFieldCropFilter === 'kukurydza' ? 'active' : ''}" data-crop-filter="kukurydza">
+      <div class="stat-card-value" style="color:#f59e0b;">${cornFields}</div>
+      <div class="stat-card-label">Pola z kukurydzą</div>
+    </div>
+    <div class="stat-card clickable ${currentFieldCropFilter === 'jeczmien' ? 'active' : ''}" data-crop-filter="jeczmien">
+      <div class="stat-card-value" style="color:#fb923c;">${barleyFields}</div>
+      <div class="stat-card-label">Pola z jęczmieniem</div>
+    </div>
+    <div class="stat-card clickable ${currentFieldCropFilter === 'owies' ? 'active' : ''}" data-crop-filter="owies">
+      <div class="stat-card-value" style="color:#2dd4bf;">${oatFields}</div>
+      <div class="stat-card-label">Pola z owsem</div>
     </div>
   `;
+
+  statsContainer.querySelectorAll('.stat-card.clickable').forEach(card => {
+    card.onclick = () => {
+      const filterKey = card.dataset.cropFilter;
+      setFieldCropFilter(filterKey);
+    };
+  });
 }
 
 function renderFieldsList() {
@@ -1285,28 +1433,50 @@ function renderFieldsList() {
   if (!container) return;
 
   const query = (document.getElementById('field-search-input')?.value || '').toLowerCase();
-  const filtered = fields.filter(f => 
-    (f.name || '').toLowerCase().includes(query) ||
-    (f.parcelNo || '').toLowerCase().includes(query) ||
-    (f.crop || '').toLowerCase().includes(query) ||
-    (f.variety || '').toLowerCase().includes(query)
-  );
+  const filtered = fields.filter(f => {
+    const matchesCrop = filterFieldByCrop(f, currentFieldCropFilter);
+    const matchesQuery = (f.name || '').toLowerCase().includes(query) ||
+                         (f.parcelNo || '').toLowerCase().includes(query) ||
+                         (f.crop || '').toLowerCase().includes(query) ||
+                         (f.variety || '').toLowerCase().includes(query);
+    return matchesCrop && matchesQuery;
+  });
 
-  if (filtered.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🌾</div>
-        <h3>Brak działek w rejestrze</h3>
-        <p>Dodaj swoje pierwsze pole klikając przycisk <strong>➕ Dodaj Pole</strong>!</p>
+  let html = '';
+
+  // Pasek aktywnego filtru jeśli wybrano konkretną uprawę
+  if (currentFieldCropFilter !== 'all') {
+    html += `
+      <div style="background:#1e293b; border:1px solid var(--primary); border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-weight:800; color:#ffffff;">🌾 Filtrowanie: ${getCropFilterName(currentFieldCropFilter)}</span>
+          <span style="font-size:0.8rem; color:var(--text-secondary); margin-left:6px;">(${filtered.length} działek)</span>
+        </div>
+        <button class="btn btn-sm btn-secondary" id="btn-reset-crop-filter" style="padding:4px 10px; font-size:0.78rem;">
+          ✖️ Pokaż wszystkie
+        </button>
       </div>
     `;
+  }
+
+  if (filtered.length === 0) {
+    html += `
+      <div class="empty-state">
+        <div class="empty-icon">🌾</div>
+        <h3>Brak działek ${currentFieldCropFilter !== 'all' ? `z uprawą: ${getCropFilterName(currentFieldCropFilter)}` : 'w rejestrze'}</h3>
+        <p>Przejdź do zakładki <strong>📊 Menu</strong>, aby dodać nowe pole lub wybrać inną uprawę.</p>
+      </div>
+    `;
+    container.innerHTML = html;
+    
+    const resetBtn = document.getElementById('btn-reset-crop-filter');
+    if (resetBtn) resetBtn.onclick = () => setFieldCropFilter('all', false);
     return;
   }
 
-  container.innerHTML = filtered.map(field => {
+  html += filtered.map(field => {
     const fieldTreatments = treatments.filter(t => t.fieldId === field.id);
     const sortedTreatments = [...fieldTreatments].sort((a,b) => new Date(b.date) - new Date(a.date));
-    const lastTreatment = sortedTreatments.length > 0 ? sortedTreatments[0] : null;
 
     // Policz ile zabiegów w poszczególnych latach
     const yearsCounts = {};
@@ -1331,19 +1501,55 @@ function renderFieldsList() {
         <div style="font-size:0.85rem; margin:8px 0; color:var(--text-secondary);">
           <div>🌱 Odmiana: <strong>${escapeHTML(field.variety || 'Nie podano')}</strong></div>
           ${field.sowingDate ? `<div>📅 Siew: ${new Date(field.sowingDate).toLocaleDateString('pl-PL')}</div>` : ''}
-          <div style="margin-top:4px; color:#38bdf8;">
-            📜 Zabiegi w historii (Lata): <strong>${fieldTreatments.length}</strong> ${yearsSummary ? `(${yearsSummary})` : ''}
+          ${field.notes ? `<div style="margin-top:2px;">📝 <em>${escapeHTML(field.notes)}</em></div>` : ''}
+        </div>
+
+        <!-- ZINTEGROWANA LISTA OPRYSKÓW TEGO POLA -->
+        <div style="background:#0f172a; border-radius:8px; padding:10px 12px; margin:10px 0; border:1px solid #1e293b;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="font-size:0.75rem; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">
+              🧪 Wykonane opryski (${fieldTreatments.length}):
+            </div>
+            ${yearsSummary ? `<div style="font-size:0.72rem; color:#38bdf8;">${yearsSummary}</div>` : ''}
           </div>
-          ${lastTreatment ? `<div style="margin-top:2px; color:var(--text-primary);">🧪 Ostatni: <strong>${escapeHTML(lastTreatment.product)}</strong> (${new Date(lastTreatment.date).toLocaleDateString('pl-PL')})</div>` : ''}
-          ${field.notes ? `<div style="margin-top:4px;">📝 <em>${escapeHTML(field.notes)}</em></div>` : ''}
+
+          ${sortedTreatments.length === 0 ? `
+            <div style="font-size:0.78rem; color:var(--text-secondary); padding:2px 0;">
+              Brak wpisanych oprysków na to pole.
+            </div>
+          ` : `
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              ${sortedTreatments.slice(0, 3).map(t => {
+                let badgeColor = '#38bdf8';
+                if (t.treatmentType === 'Herbicyd') badgeColor = '#22c55e';
+                if (t.treatmentType === 'Fungicyd') badgeColor = '#eab308';
+                if (t.treatmentType === 'Insektycyd') badgeColor = '#ef4444';
+                return `
+                  <div style="font-size:0.8rem; display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <span>
+                      <strong style="color:${badgeColor};">[${escapeHTML(t.treatmentType)}]</strong> 
+                      <span style="color:#ffffff;">${escapeHTML(t.product)}</span>
+                      ${t.dosePerHa ? `<small style="color:var(--text-secondary);">(${escapeHTML(t.dosePerHa)})</small>` : ''}
+                    </span>
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">${new Date(t.date).toLocaleDateString('pl-PL')}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            ${sortedTreatments.length > 3 ? `
+              <div style="font-size:0.75rem; color:#38bdf8; margin-top:6px; cursor:pointer;" onclick="openFieldHistoryModal('${field.id}')">
+                ➔ Zobacz wszystkie ${sortedTreatments.length} zabiegów w historii pola
+              </div>
+            ` : ''}
+          `}
         </div>
 
         <div class="sow-actions">
-          <button class="btn btn-sm btn-secondary btn-history-for-field" data-id="${field.id}" style="font-size:0.82rem; padding:6px 10px;">
-            📜 Historia Pola
+          <button class="btn btn-sm btn-primary btn-add-treat-for-field" data-id="${field.id}" style="font-size:0.85rem; padding:8px 12px; font-weight:700;">
+            🧪 Wpisz Oprysk
           </button>
-          <button class="btn btn-sm btn-primary btn-add-treat-for-field" data-id="${field.id}" style="font-size:0.82rem; padding:6px 10px;">
-            🧪 Dodaj Oprysk
+          <button class="btn btn-sm btn-secondary btn-history-for-field" data-id="${field.id}" style="font-size:0.82rem; padding:8px 10px;">
+            📜 Cała Historia
           </button>
           <button class="icon-btn btn-edit-field" data-id="${field.id}" title="Edytuj">✏️</button>
           <button class="icon-btn btn-delete-field" data-id="${field.id}" title="Usuń" style="color:var(--accent-red)">🗑️</button>
@@ -1351,6 +1557,11 @@ function renderFieldsList() {
       </div>
     `;
   }).join('');
+
+  container.innerHTML = html;
+
+  const resetBtn = document.getElementById('btn-reset-crop-filter');
+  if (resetBtn) resetBtn.onclick = () => setFieldCropFilter('all', false);
 
   filtered.forEach(field => {
     const card = document.getElementById(`field-card-${field.id}`);
@@ -1506,12 +1717,25 @@ function openFieldModal(fieldData = null) {
     document.getElementById('modal-field-crop').value = fieldData.crop || '';
     document.getElementById('modal-field-variety').value = fieldData.variety || '';
     document.getElementById('modal-field-sowing-date').value = fieldData.sowingDate || '';
+    document.getElementById('modal-field-sprays').value = fieldData.sprays || '';
     document.getElementById('modal-field-notes').value = fieldData.notes || '';
   } else {
-    title.textContent = 'Dodaj Nowe Pole / Działkę';
+    title.textContent = currentFieldCropFilter !== 'all' 
+      ? `Dodaj Pole (${getCropFilterName(currentFieldCropFilter)})`
+      : 'Dodaj Nowe Pole / Działkę';
     document.getElementById('modal-field-id').value = '';
     document.getElementById('modal-field-sowing-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('modal-field-sprays').value = '';
+    
+    const defaultCrop = getCropDefaultName(currentFieldCropFilter);
+    if (defaultCrop) {
+      document.getElementById('modal-field-crop').value = defaultCrop;
+    }
   }
+
+  // Zaktualizuj listę podpowiedzi odmian dla aktualnej uprawy
+  const currentCropVal = document.getElementById('modal-field-crop').value;
+  updateVarietySuggestions(currentCropVal);
 
   modal.classList.add('active');
 }
@@ -1529,6 +1753,7 @@ function saveFieldFromModal() {
   const crop = document.getElementById('modal-field-crop').value.trim();
   const variety = document.getElementById('modal-field-variety').value.trim();
   const sowingDate = document.getElementById('modal-field-sowing-date').value;
+  const sprays = document.getElementById('modal-field-sprays').value.trim();
   const notes = document.getElementById('modal-field-notes').value.trim();
 
   if (!name || areaHa <= 0) {
@@ -1539,22 +1764,62 @@ function saveFieldFromModal() {
   if (id) {
     const idx = fields.findIndex(f => f.id === id);
     if (idx !== -1) {
-      fields[idx] = { ...fields[idx], name, areaHa, parcelNo, crop, variety, sowingDate, notes };
+      const oldSprays = fields[idx].sprays || '';
+      fields[idx] = { ...fields[idx], name, areaHa, parcelNo, crop, variety, sowingDate, sprays, notes };
+      
+      // Jeśli dopisano oprysk, dodaj go jako nowy wpis zabiegu
+      if (sprays && sprays !== oldSprays) {
+        treatments.push({
+          id: 'treatment_' + Date.now(),
+          fieldId: id,
+          fieldName: name,
+          date: sowingDate || new Date().toISOString().split('T')[0],
+          treatmentType: 'Oprysk',
+          product: sprays,
+          dosePerHa: '',
+          waterVolume: 200,
+          reasonTarget: 'Zabieg polowy',
+          notes: '',
+          createdAt: new Date().toISOString()
+        });
+        saveTreatmentsData();
+      }
       showToast('Zaktualizowano dane pola!');
     }
   } else {
+    const fieldId = 'field_' + Date.now();
     const newField = {
-      id: 'field_' + Date.now(),
+      id: fieldId,
       name,
       areaHa,
       parcelNo,
       crop,
       variety,
       sowingDate,
+      sprays,
       notes,
       createdAt: new Date().toISOString()
     };
     fields.push(newField);
+
+    // Jeśli podano oprysk przy tworzeniu pola, od razu zapisz go do zabiegów
+    if (sprays) {
+      treatments.push({
+        id: 'treatment_' + Date.now(),
+        fieldId: fieldId,
+        fieldName: name,
+        date: sowingDate || new Date().toISOString().split('T')[0],
+        treatmentType: 'Oprysk',
+        product: sprays,
+        dosePerHa: '',
+        waterVolume: 200,
+        reasonTarget: 'Zabieg polowy',
+        notes: '',
+        createdAt: new Date().toISOString()
+      });
+      saveTreatmentsData();
+    }
+
     showToast('Dodano pole do rejestru!');
   }
 

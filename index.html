@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=30">
+  <link rel="stylesheet" href="styles.css?v=42">
 </head>
 <body>
 
@@ -276,22 +276,30 @@
       <!-- GŁÓWNA ZAWARTOŚĆ PÓL -->
       <main class="main-content">
 
-        <!-- ZAKŁADKA 1: DZIAŁKI I POLA -->
-        <section id="tab-fields-list" class="tab-pane active">
+        <!-- ZAKŁADKA 1: MENU (KAFELKI I STATYSTYKI) -->
+        <section id="tab-fields-menu" class="tab-pane active">
+          <div style="margin-bottom: 12px;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">📊 Podsumowanie Upraw</h2>
+            <p style="font-size: 0.82rem; color: var(--text-secondary);">Wybierz uprawę, aby zobaczyć i dodać powiązane pola:</p>
+          </div>
           
-          <!-- STATYSTYKI PÓL -->
-          <div id="fields-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <!-- STATYSTYKI PÓL (KLIKALNE KAFELKI UPRAW) -->
+          <div id="fields-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
             <!-- wypełniane przez app.js -->
           </div>
 
-          <!-- PRZYCISKI AKCJI -->
-          <div style="display: flex; gap: 10px; margin-bottom: 14px;">
-            <button class="btn btn-primary" id="btn-add-field-main" style="flex: 1;">
-              <span>➕ Dodaj Pole</span>
+          <!-- PRZYCISK DODAWANIA POLA -->
+          <div style="margin-bottom: 14px;">
+            <button class="btn btn-primary" id="btn-add-field-menu" style="width: 100%; font-size: 1.02rem; padding: 14px;">
+              <span>➕ Dodaj Nowe Pole</span>
             </button>
-            <button class="btn btn-secondary" id="btn-add-treatment-quick" style="flex: 1;">
-              <span>🧪 Zapisz Oprysk</span>
-            </button>
+          </div>
+        </section>
+
+        <!-- ZAKŁADKA 2: WSZYSTKIE POLA -->
+        <section id="tab-fields-all" class="tab-pane">
+          <div style="margin-bottom: 12px;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">🌾 Wszystkie Pola i Działki</h2>
           </div>
 
           <!-- WYSZUKIWARKA -->
@@ -299,43 +307,26 @@
             <input type="text" id="field-search-input" class="form-control" placeholder="🔍 Szukaj pola, działki lub uprawy...">
           </div>
 
-          <!-- LISTA PÓL -->
+          <!-- LISTA PÓL ZE ZINTEGROWANYMI OPRYSKAMI -->
           <div id="fields-container">
-            <!-- Wstrzykiwane przez app.js -->
-          </div>
-        </section>
-
-        <!-- ZAKŁADKA 2: REJESTR OPRYSKÓW I ZABIEGÓW -->
-        <section id="tab-treatments-list" class="tab-pane">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h2 style="font-size: 1.15rem; font-weight: 700;">🧪 Ewidencja Zabiegów</h2>
-            <button class="btn btn-primary btn-sm" id="btn-add-treatment-main">➕ Nowy Zabieg</button>
-          </div>
-
-          <!-- WYSZUKIWARKA OPRYSKÓW -->
-          <div class="search-filter-bar">
-            <input type="text" id="treatment-search-input" class="form-control" placeholder="🔍 Szukaj po polu, środku lub dacie...">
-          </div>
-
-          <!-- LISTA WYKONANYCH ZABIEGÓW -->
-          <div id="treatments-container">
             <!-- Wstrzykiwane przez app.js -->
           </div>
         </section>
 
       </main>
 
-      <!-- NAWIGACJA DOLNA DLA PÓL -->
+      <!-- DOLNY PASEK NAWIGACJI DLA PÓL -->
       <nav class="bottom-nav">
-        <button class="nav-item-fields active" data-field-tab="fields-list">
-          <span class="nav-icon">🌱</span>
-          <span>Działki i Pola</span>
+        <button class="nav-item-fields active" data-field-tab="fields-menu">
+          <span class="nav-icon">📊</span>
+          <span>Menu</span>
         </button>
-        <button class="nav-item-fields" data-field-tab="treatments-list">
-          <span class="nav-icon">🧪</span>
-          <span>Ewidencja Oprysków</span>
+        <button class="nav-item-fields" data-field-tab="fields-all">
+          <span class="nav-icon">🌾</span>
+          <span>Wszystkie Pola</span>
         </button>
       </nav>
+
     </div> <!-- KONIEC screen-fields -->
 
   </div> <!-- KONIEC app-container -->
@@ -379,6 +370,11 @@
           </select>
         </div>
 
+        <div class="form-group">
+          <label for="modal-sow-notes">Notatki / Uwagi:</label>
+          <textarea id="modal-sow-notes" class="form-control" rows="2" placeholder="np. Miot #2, dobra mleczność..."></textarea>
+        </div>
+
         <div style="display: flex; gap: 10px; margin-top: 20px;">
           <button type="button" class="btn btn-secondary" id="btn-close-modal">Anuluj</button>
           <button type="submit" class="btn btn-primary">Zapisz</button>
@@ -413,17 +409,34 @@
         <div class="form-row">
           <div class="form-group">
             <label for="modal-field-crop">Zasiana roślina / uprawa:*</label>
-            <input type="text" id="modal-field-crop" class="form-control" placeholder="np. Pszenica ozima, Rzepak, Kukurydza" required>
+            <input type="text" id="modal-field-crop" class="form-control" list="crop-suggestions" placeholder="np. Pszenica, Rzepak, Kukurydza..." required>
+            <datalist id="crop-suggestions">
+              <option value="Pszenica">
+              <option value="Pszenica ozima">
+              <option value="Pszenica jara">
+              <option value="Rzepak">
+              <option value="Kukurydza">
+              <option value="Jęczmień">
+              <option value="Owies">
+            </datalist>
           </div>
           <div class="form-group">
             <label for="modal-field-variety">Odmiana:</label>
-            <input type="text" id="modal-field-variety" class="form-control" placeholder="np. RGT Kilimanjaro, Pioneer">
+            <input type="text" id="modal-field-variety" class="form-control" list="variety-suggestions" placeholder="Wybierz lub wpisz odmianę...">
+            <datalist id="variety-suggestions">
+              <!-- wypełniane dynamicznie przez app.js -->
+            </datalist>
           </div>
         </div>
 
         <div class="form-group">
           <label for="modal-field-sowing-date">Data siewu / sadzenia:</label>
           <input type="date" id="modal-field-sowing-date" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="modal-field-sprays">Opryski / Zabiegi:</label>
+          <input type="text" id="modal-field-sprays" class="form-control" placeholder="np. Input Plex 1.0 l/ha, Boxer 2.0 l/ha, Mocznik 5 kg...">
         </div>
 
         <div class="form-group">
@@ -529,6 +542,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=30"></script>
+  <script src="app.js?v=42"></script>
 </body>
 </html>
