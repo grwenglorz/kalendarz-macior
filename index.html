@@ -14,33 +14,85 @@
   <meta name="apple-mobile-web-app-title" content="Maciory">
   <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300e676'/><text x='50' y='65' font-size='50' text-anchor='middle'>🐖</text></svg>">
   
-  <link rel="stylesheet" href="styles.css?v=25">
+  <link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
 
   <div id="app-container">
     
-    <!-- NAGŁÓWEK APLIKACJI -->
-    <header class="app-header">
-      <div class="brand">
-        <div class="brand-icon">🐖</div>
-        <div class="brand-text">
-          <h1>Maciory</h1>
-          <p>Reguła 3M + 3T + 3D (114 dni)</p>
+    <!-- ==========================================
+         EKRAN 1: LOBBY / GŁÓWNY HUB GOSPODARSTWA
+         ========================================== -->
+    <div id="screen-lobby" class="screen active">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-icon">🚜</div>
+          <div class="brand-text">
+            <h1>Gospodarstwo</h1>
+            <p>Centrum Zarządzania</p>
+          </div>
         </div>
-      </div>
-      <div class="header-actions">
-        <button class="icon-btn" id="btn-toggle-theme" title="Zmień motyw">☀️</button>
-      </div>
-    </header>
+        <div class="header-actions">
+          <button class="icon-btn btn-toggle-theme-global" title="Zmień motyw">☀️</button>
+        </div>
+      </header>
 
-    <!-- BADGE STATUSU CHMURY RODZINNEJ -->
-    <div id="cloud-badge-wrapper" style="padding: 6px 16px; text-align: center; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: block;">
-      <span id="cloud-status-badge" class="badge" style="font-size: 0.78rem;">⚪ Chmura nieaktywna (Wpisz Kod Rodziny)</span>
+      <main class="main-content">
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 16px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+          Wybierz dział:
+        </div>
+
+        <div class="lobby-container">
+          <!-- KAFEL 1: ŚWINIE -->
+          <button id="btn-open-pigs" class="lobby-card lobby-card-pigs">
+            <div class="lobby-card-icon">🐖</div>
+            <div class="lobby-card-content">
+              <div class="lobby-card-title">ŚWINIE</div>
+              <div class="lobby-card-desc">Kalkulator wyproszeń, rejestr macior i terminarz porodów</div>
+            </div>
+            <div class="lobby-card-arrow">➜</div>
+          </button>
+
+          <!-- KAFEL 2: PUSTY / WKRÓTCE -->
+          <div class="lobby-card lobby-card-empty">
+            <div class="lobby-card-icon">⏳</div>
+            <div class="lobby-card-content">
+              <div class="lobby-card-title">WKRÓTCE</div>
+              <div class="lobby-card-desc">Nowy moduł w przygotowaniu...</div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
 
-    <!-- GŁÓWNA ZAWARTOŚĆ -->
-    <main class="main-content">
+    <!-- ==========================================
+         EKRAN 2: MODUŁ ŚWINIE (PEŁNA APLIKACJA MACIOR)
+         ========================================== -->
+    <div id="screen-pigs" class="screen">
+      
+      <!-- NAGŁÓWEK APLIKACJI ŚWIŃ -->
+      <header class="app-header">
+        <div class="brand">
+          <button class="icon-btn" id="btn-back-lobby" title="Wróć do Lobby" style="margin-right: 4px; font-size: 1rem;">
+            <span>🏠</span>
+          </button>
+          <div class="brand-text">
+            <h1>Maciory</h1>
+            <p>Reguła 3M + 3T + 3D (114 dni)</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn btn-toggle-theme-global" title="Zmień motyw">☀️</button>
+        </div>
+      </header>
+
+      <!-- BADGE STATUSU CHMURY RODZINNEJ -->
+      <div id="cloud-badge-wrapper" style="padding: 6px 16px; text-align: center; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: block;">
+        <span id="cloud-status-badge" class="badge" style="font-size: 0.78rem;">⚪ Chmura nieaktywna (Wpisz Kod Rodziny)</span>
+      </div>
+
+      <!-- GŁÓWNA ZAWARTOŚĆ -->
+      <main class="main-content">
 
       <!-- ZAKŁADKA 1: MENU -->
       <section id="tab-calc" class="tab-pane active">
@@ -196,8 +248,9 @@
         <span>Rodzina</span>
       </button>
     </nav>
+  </div> <!-- KONIEC screen-pigs -->
 
-  </div>
+  </div> <!-- KONIEC app-container -->
 
   <!-- MODAL DODAWANIA / EDYCJI MACIORY -->
   <div class="modal-overlay" id="sow-modal">
@@ -251,6 +304,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>

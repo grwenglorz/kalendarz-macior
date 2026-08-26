@@ -54,26 +54,63 @@ function initTheme() {
   document.documentElement.setAttribute('data-theme', savedTheme);
   updateThemeIcon(savedTheme);
 
-  const themeBtn = document.getElementById('btn-toggle-theme');
-  if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
+  const themeBtns = document.querySelectorAll('.btn-toggle-theme-global');
+  themeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'light' ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('prosnosc_swin_theme', next);
       updateThemeIcon(next);
     });
-  }
+  });
 }
 
 function updateThemeIcon(theme) {
-  const btn = document.getElementById('btn-toggle-theme');
-  if (btn) {
+  const themeBtns = document.querySelectorAll('.btn-toggle-theme-global');
+  themeBtns.forEach(btn => {
     btn.innerHTML = theme === 'light' ? '🌙' : '☀️';
+  });
+}
+
+function setupLobbyNavigation() {
+  const btnOpenPigs = document.getElementById('btn-open-pigs');
+  const btnBackLobby = document.getElementById('btn-back-lobby');
+
+  if (btnOpenPigs) {
+    btnOpenPigs.addEventListener('click', () => {
+      switchScreen('pigs');
+    });
+  }
+
+  if (btnBackLobby) {
+    btnBackLobby.addEventListener('click', () => {
+      switchScreen('lobby');
+    });
+  }
+}
+
+function switchScreen(screenName) {
+  const screenLobby = document.getElementById('screen-lobby');
+  const screenPigs = document.getElementById('screen-pigs');
+
+  if (screenName === 'pigs') {
+    if (screenLobby) screenLobby.classList.remove('active');
+    if (screenPigs) screenPigs.classList.add('active');
+    renderMenuStats();
+    renderSowsList();
+    renderCalendarTimeline();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    if (screenPigs) screenPigs.classList.remove('active');
+    if (screenLobby) screenLobby.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
 
 function setupNavigation() {
+  setupLobbyNavigation();
+
   const navItems = document.querySelectorAll('.nav-item');
   const tabPanes = document.querySelectorAll('.tab-pane');
 
