@@ -605,7 +605,8 @@ input[type="number"] {
   box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
 }
 
-.nav-item {
+.nav-item,
+.nav-item-fields {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -613,26 +614,35 @@ input[type="number"] {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-md);
   transition: var(--transition);
   flex: 1;
 }
 
-.nav-item .nav-icon {
-  font-size: 1.3rem;
+.nav-item .nav-icon,
+.nav-item-fields .nav-icon {
+  font-size: 1.4rem;
+  transition: transform 0.2s ease;
 }
 
-.nav-item.active {
-  color: var(--primary);
+.nav-item:hover,
+.nav-item-fields:hover {
+  color: var(--text-primary);
+}
+
+.nav-item.active,
+.nav-item-fields.active {
+  color: var(--primary) !important;
   text-shadow: 0 0 8px rgba(0, 230, 118, 0.4);
 }
 
-.nav-item.active .nav-icon {
-  transform: scale(1.15);
+.nav-item.active .nav-icon,
+.nav-item-fields.active .nav-icon {
+  transform: scale(1.18);
 }
 
 /* PUSTY STAN */

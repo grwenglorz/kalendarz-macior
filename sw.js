@@ -1,9 +1,9 @@
-const CACHE_NAME = 'prosnosc-swin-v42';
+const CACHE_NAME = 'prosnosc-swin-v46';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=42',
-  './app.js?v=42',
+  './styles.css?v=46',
+  './app.js?v=46',
   './manifest.json',
   './logo.jpg'
 ];

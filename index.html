@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=42">
+  <link rel="stylesheet" href="styles.css?v=46">
 </head>
 <body>
 
@@ -303,8 +303,18 @@
           </div>
 
           <!-- WYSZUKIWARKA -->
-          <div class="search-filter-bar">
+          <div class="search-filter-bar" style="margin-bottom: 10px;">
             <input type="text" id="field-search-input" class="form-control" placeholder="🔍 Szukaj pola, działki lub uprawy...">
+          </div>
+
+          <!-- KAFELKI / CHIPSY FILTRACJI UPRAW (CZYTELNE, 2 RZĘDY PO 3 KAFELKI) -->
+          <div id="field-crop-chips" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">
+            <button class="chip active" data-crop-filter="all" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌾 Wszystkie</button>
+            <button class="chip" data-crop-filter="pszenica" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌾 Pszenica</button>
+            <button class="chip" data-crop-filter="rzepak" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌼 Rzepak</button>
+            <button class="chip" data-crop-filter="kukurydza" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌽 Kukurydza</button>
+            <button class="chip" data-crop-filter="jeczmien" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🟠 Jęczmień</button>
+            <button class="chip" data-crop-filter="owies" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🔷 Owies</button>
           </div>
 
           <!-- LISTA PÓL ZE ZINTEGROWANYMI OPRYSKAMI -->
@@ -542,6 +552,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=42"></script>
+  <script src="app.js?v=46"></script>
 </body>
 </html>

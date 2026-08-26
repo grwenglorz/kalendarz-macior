@@ -1268,6 +1268,16 @@ function setupFieldsModuleListeners() {
     });
   }
 
+  // Kafelki / Chipsy filtrowania upraw w widoku Wszystkie Pola
+  const cropChips = document.querySelectorAll('#field-crop-chips .chip');
+  cropChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cropKey = chip.dataset.cropFilter;
+      currentFieldCropFilter = cropKey;
+      renderFieldsList();
+    });
+  });
+
   // Wyszukiwarki
   const fieldSearch = document.getElementById('field-search-input');
   if (fieldSearch) fieldSearch.addEventListener('input', renderFieldsList);
@@ -1423,7 +1433,16 @@ function renderFieldsStats() {
   statsContainer.querySelectorAll('.stat-card.clickable').forEach(card => {
     card.onclick = () => {
       const filterKey = card.dataset.cropFilter;
-      setFieldCropFilter(filterKey);
+      if (filterKey === 'all') {
+        currentFieldCropFilter = 'all';
+        renderFieldsStats();
+        renderFieldsList();
+        switchFieldTab('fields-all');
+      } else {
+        currentFieldCropFilter = filterKey;
+        const defaultCrop = getCropDefaultName(filterKey);
+        openFieldModal(null, defaultCrop);
+      }
     };
   });
 }
@@ -1431,6 +1450,16 @@ function renderFieldsStats() {
 function renderFieldsList() {
   const container = document.getElementById('fields-container');
   if (!container) return;
+
+  // Synchronizacja aktywnych kafelków / chipsów upraw
+  const cropChips = document.querySelectorAll('#field-crop-chips .chip');
+  cropChips.forEach(chip => {
+    if (chip.dataset.cropFilter === currentFieldCropFilter) {
+      chip.classList.add('active');
+    } else {
+      chip.classList.remove('active');
+    }
+  });
 
   const query = (document.getElementById('field-search-input')?.value || '').toLowerCase();
   const filtered = fields.filter(f => {
@@ -1700,7 +1729,7 @@ function renderTreatmentsList() {
   });
 }
 
-function openFieldModal(fieldData = null) {
+function openFieldModal(fieldData = null, prefillCrop = null) {
   const modal = document.getElementById('field-modal');
   const title = document.getElementById('field-modal-title');
   const form = document.getElementById('field-form');
@@ -1720,17 +1749,14 @@ function openFieldModal(fieldData = null) {
     document.getElementById('modal-field-sprays').value = fieldData.sprays || '';
     document.getElementById('modal-field-notes').value = fieldData.notes || '';
   } else {
-    title.textContent = currentFieldCropFilter !== 'all' 
-      ? `Dodaj Pole (${getCropFilterName(currentFieldCropFilter)})`
+    const cropToUse = prefillCrop !== null ? prefillCrop : (currentFieldCropFilter !== 'all' ? getCropDefaultName(currentFieldCropFilter) : '');
+    title.textContent = cropToUse 
+      ? `Dodaj Pole (${cropToUse})`
       : 'Dodaj Nowe Pole / Działkę';
     document.getElementById('modal-field-id').value = '';
     document.getElementById('modal-field-sowing-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('modal-field-sprays').value = '';
-    
-    const defaultCrop = getCropDefaultName(currentFieldCropFilter);
-    if (defaultCrop) {
-      document.getElementById('modal-field-crop').value = defaultCrop;
-    }
+    document.getElementById('modal-field-crop').value = cropToUse || '';
   }
 
   // Zaktualizuj listę podpowiedzi odmian dla aktualnej uprawy
@@ -1825,6 +1851,9 @@ function saveFieldFromModal() {
 
   saveFieldsData();
   closeFieldModal();
+  renderFieldsStats();
+  renderFieldsList();
+  switchFieldTab('fields-all');
 }
 
 function deleteField(id) {
