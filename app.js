@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderSowsList();
   renderCalendarTimeline();
+  initFieldsModule();
 });
 
 function registerServiceWorker() {
@@ -73,13 +74,24 @@ function updateThemeIcon(theme) {
   });
 }
 
+let fields = [];
+let treatments = [];
+
 function setupLobbyNavigation() {
   const btnOpenPigs = document.getElementById('btn-open-pigs');
+  const btnOpenFields = document.getElementById('btn-open-fields');
   const btnBackLobby = document.getElementById('btn-back-lobby');
+  const btnBackLobbyFields = document.getElementById('btn-back-lobby-fields');
 
   if (btnOpenPigs) {
     btnOpenPigs.addEventListener('click', () => {
       switchScreen('pigs');
+    });
+  }
+
+  if (btnOpenFields) {
+    btnOpenFields.addEventListener('click', () => {
+      switchScreen('fields');
     });
   }
 
@@ -88,24 +100,37 @@ function setupLobbyNavigation() {
       switchScreen('lobby');
     });
   }
+
+  if (btnBackLobbyFields) {
+    btnBackLobbyFields.addEventListener('click', () => {
+      switchScreen('lobby');
+    });
+  }
 }
 
 function switchScreen(screenName) {
   const screenLobby = document.getElementById('screen-lobby');
   const screenPigs = document.getElementById('screen-pigs');
+  const screenFields = document.getElementById('screen-fields');
+
+  if (screenLobby) screenLobby.classList.remove('active');
+  if (screenPigs) screenPigs.classList.remove('active');
+  if (screenFields) screenFields.classList.remove('active');
 
   if (screenName === 'pigs') {
-    if (screenLobby) screenLobby.classList.remove('active');
     if (screenPigs) screenPigs.classList.add('active');
     renderMenuStats();
     renderSowsList();
     renderCalendarTimeline();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (screenName === 'fields') {
+    if (screenFields) screenFields.classList.add('active');
+    renderFieldsStats();
+    renderFieldsList();
+    renderTreatmentsList();
   } else {
-    if (screenPigs) screenPigs.classList.remove('active');
     if (screenLobby) screenLobby.classList.add('active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function setupNavigation() {
@@ -1119,4 +1144,673 @@ function checkUpcomingFarrowingsAndNotify() {
     }
   });
 }
+
+/* ==========================================================================
+   MODUŁ: POLA I UPRAWY (DZIAŁKI, ZASIEWY, EWIDENCJA OPRYSKÓW)
+   ========================================================================== */
+
+function initFieldsModule() {
+  loadFieldsData();
+  loadTreatmentsData();
+  setupFieldsModuleListeners();
+}
+
+function loadFieldsData() {
+  const saved = localStorage.getItem('prosnosc_swin_fields');
+  if (saved) {
+    try {
+      fields = JSON.parse(saved);
+    } catch (e) {
+      fields = [];
+    }
+  } else {
+    fields = [];
+  }
+}
+
+function saveFieldsData() {
+  localStorage.setItem('prosnosc_swin_fields', JSON.stringify(fields));
+  renderFieldsStats();
+  renderFieldsList();
+  renderTreatmentsList();
+}
+
+function loadTreatmentsData() {
+  const saved = localStorage.getItem('prosnosc_swin_treatments');
+  if (saved) {
+    try {
+      treatments = JSON.parse(saved);
+    } catch (e) {
+      treatments = [];
+    }
+  } else {
+    treatments = [];
+  }
+}
+
+function saveTreatmentsData() {
+  localStorage.setItem('prosnosc_swin_treatments', JSON.stringify(treatments));
+  renderFieldsStats();
+  renderFieldsList();
+  renderTreatmentsList();
+}
+
+function setupFieldsModuleListeners() {
+  // Nawigacja dolna w module pól
+  const fieldNavItems = document.querySelectorAll('.nav-item-fields');
+  fieldNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const targetTab = item.dataset.fieldTab;
+      fieldNavItems.forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+
+      document.querySelectorAll('#screen-fields .tab-pane').forEach(p => p.classList.remove('active'));
+      const targetSection = document.getElementById(`tab-${targetTab}`);
+      if (targetSection) targetSection.classList.add('active');
+
+      if (targetTab === 'fields-list') renderFieldsList();
+      if (targetTab === 'treatments-list') renderTreatmentsList();
+    });
+  });
+
+  // Przyciski dodawania
+  const btnAddField = document.getElementById('btn-add-field-main');
+  const btnAddTreatmentMain = document.getElementById('btn-add-treatment-main');
+  const btnAddTreatmentQuick = document.getElementById('btn-add-treatment-quick');
+
+  if (btnAddField) btnAddField.addEventListener('click', () => openFieldModal());
+  if (btnAddTreatmentMain) btnAddTreatmentMain.addEventListener('click', () => openTreatmentModal());
+  if (btnAddTreatmentQuick) btnAddTreatmentQuick.addEventListener('click', () => openTreatmentModal());
+
+  // Formularz Pola
+  const fieldForm = document.getElementById('field-form');
+  const btnCloseField = document.getElementById('btn-close-field-modal');
+  if (fieldForm) {
+    fieldForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveFieldFromModal();
+    });
+  }
+  if (btnCloseField) btnCloseField.addEventListener('click', closeFieldModal);
+
+  // Formularz Zabiegu
+  const treatmentForm = document.getElementById('treatment-form');
+  const btnCloseTreatment = document.getElementById('btn-close-treatment-modal');
+  if (treatmentForm) {
+    treatmentForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveTreatmentFromModal();
+    });
+  }
+  if (btnCloseTreatment) btnCloseTreatment.addEventListener('click', closeTreatmentModal);
+
+  // Wyszukiwarki
+  const fieldSearch = document.getElementById('field-search-input');
+  if (fieldSearch) fieldSearch.addEventListener('input', renderFieldsList);
+
+  const treatmentSearch = document.getElementById('treatment-search-input');
+  if (treatmentSearch) treatmentSearch.addEventListener('input', renderTreatmentsList);
+}
+
+function renderFieldsStats() {
+  const statsContainer = document.getElementById('fields-stats');
+  if (!statsContainer) return;
+
+  const totalArea = fields.reduce((sum, f) => sum + (parseFloat(f.areaHa) || 0), 0).toFixed(2);
+  const totalFields = fields.length;
+  const totalTreatments = treatments.length;
+
+  statsContainer.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-card-value" style="color:#eab308;">${totalArea} ha</div>
+      <div class="stat-card-label">Łączny Areał</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value">${totalFields}</div>
+      <div class="stat-card-label">Działek / Pól</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value" style="color:var(--accent-blue);">${totalTreatments}</div>
+      <div class="stat-card-label">Wykonanych Oprysków</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value" style="color:var(--primary);">${fields.filter(f => f.crop).length}</div>
+      <div class="stat-card-label">Obsianych Pól</div>
+    </div>
+  `;
+}
+
+function renderFieldsList() {
+  const container = document.getElementById('fields-container');
+  if (!container) return;
+
+  const query = (document.getElementById('field-search-input')?.value || '').toLowerCase();
+  const filtered = fields.filter(f => 
+    (f.name || '').toLowerCase().includes(query) ||
+    (f.parcelNo || '').toLowerCase().includes(query) ||
+    (f.crop || '').toLowerCase().includes(query) ||
+    (f.variety || '').toLowerCase().includes(query)
+  );
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🌾</div>
+        <h3>Brak działek w rejestrze</h3>
+        <p>Dodaj swoje pierwsze pole klikając przycisk <strong>➕ Dodaj Pole</strong>!</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(field => {
+    const fieldTreatments = treatments.filter(t => t.fieldId === field.id);
+    const sortedTreatments = [...fieldTreatments].sort((a,b) => new Date(b.date) - new Date(a.date));
+    const lastTreatment = sortedTreatments.length > 0 ? sortedTreatments[0] : null;
+
+    // Policz ile zabiegów w poszczególnych latach
+    const yearsCounts = {};
+    fieldTreatments.forEach(t => {
+      const yr = new Date(t.date + 'T00:00:00').getFullYear();
+      yearsCounts[yr] = (yearsCounts[yr] || 0) + 1;
+    });
+    const yearsSummary = Object.keys(yearsCounts).sort((a,b)=>b-a).map(yr => `${yr}: ${yearsCounts[yr]}`).join(', ');
+
+    return `
+      <div class="sow-card" id="field-card-${field.id}">
+        <div class="sow-card-header">
+          <div>
+            <div class="sow-name">🌾 ${escapeHTML(field.name)}</div>
+            <div class="sow-subtitle">📐 <strong>${parseFloat(field.areaHa).toFixed(2)} ha</strong> ${field.parcelNo ? `| ${escapeHTML(field.parcelNo)}` : ''}</div>
+          </div>
+          <span class="badge" style="background:#2a2415; color:#eab308; border:1px solid #ca8a04;">
+            ${escapeHTML(field.crop || 'Brak uprawy')}
+          </span>
+        </div>
+
+        <div style="font-size:0.85rem; margin:8px 0; color:var(--text-secondary);">
+          <div>🌱 Odmiana: <strong>${escapeHTML(field.variety || 'Nie podano')}</strong></div>
+          ${field.sowingDate ? `<div>📅 Siew: ${new Date(field.sowingDate).toLocaleDateString('pl-PL')}</div>` : ''}
+          <div style="margin-top:4px; color:#38bdf8;">
+            📜 Zabiegi w historii (Lata): <strong>${fieldTreatments.length}</strong> ${yearsSummary ? `(${yearsSummary})` : ''}
+          </div>
+          ${lastTreatment ? `<div style="margin-top:2px; color:var(--text-primary);">🧪 Ostatni: <strong>${escapeHTML(lastTreatment.product)}</strong> (${new Date(lastTreatment.date).toLocaleDateString('pl-PL')})</div>` : ''}
+          ${field.notes ? `<div style="margin-top:4px;">📝 <em>${escapeHTML(field.notes)}</em></div>` : ''}
+        </div>
+
+        <div class="sow-actions">
+          <button class="btn btn-sm btn-secondary btn-history-for-field" data-id="${field.id}" style="font-size:0.82rem; padding:6px 10px;">
+            📜 Historia Pola
+          </button>
+          <button class="btn btn-sm btn-primary btn-add-treat-for-field" data-id="${field.id}" style="font-size:0.82rem; padding:6px 10px;">
+            🧪 Dodaj Oprysk
+          </button>
+          <button class="icon-btn btn-edit-field" data-id="${field.id}" title="Edytuj">✏️</button>
+          <button class="icon-btn btn-delete-field" data-id="${field.id}" title="Usuń" style="color:var(--accent-red)">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  filtered.forEach(field => {
+    const card = document.getElementById(`field-card-${field.id}`);
+    if (!card) return;
+
+    const btnHist = card.querySelector('.btn-history-for-field');
+    const btnAddT = card.querySelector('.btn-add-treat-for-field');
+    const btnEdit = card.querySelector('.btn-edit-field');
+    const btnDelete = card.querySelector('.btn-delete-field');
+
+    if (btnHist) btnHist.onclick = () => openFieldHistoryModal(field.id);
+    if (btnAddT) btnAddT.onclick = () => openTreatmentModal(null, field.id);
+    if (btnEdit) btnEdit.onclick = () => openFieldModal(field);
+    if (btnDelete) btnDelete.onclick = () => deleteField(field.id);
+  });
+}
+
+function renderTreatmentsList() {
+  const container = document.getElementById('treatments-container');
+  if (!container) return;
+
+  const query = (document.getElementById('treatment-search-input')?.value || '').toLowerCase();
+  const sorted = [...treatments].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const filtered = sorted.filter(t => 
+    (t.fieldName || '').toLowerCase().includes(query) ||
+    (t.product || '').toLowerCase().includes(query) ||
+    (t.treatmentType || '').toLowerCase().includes(query) ||
+    (t.date || '').includes(query)
+  );
+
+  let html = '';
+
+  // SEKJCA: TWOJE POLA - SZYBKIE WPISYWANIE OPRYSKU
+  if (fields.length > 0) {
+    html += `
+      <div style="margin-bottom: 18px;">
+        <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+          🌾 Wybierz pole do wykonania oprysku:
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+    `;
+
+    fields.forEach(field => {
+      const fieldTreatments = treatments.filter(t => t.fieldId === field.id);
+      html += `
+        <div class="card" style="padding: 12px 14px; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <div>
+            <div style="font-weight: 800; font-size: 0.95rem; color: #ffffff;">🌾 ${escapeHTML(field.name)}</div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary);">
+              ${parseFloat(field.areaHa).toFixed(2)} ha • <strong>${escapeHTML(field.crop || 'Brak uprawy')}</strong> (${fieldTreatments.length} zabiegów)
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm btn-quick-spray-field" data-field-id="${field.id}" style="padding: 8px 12px; font-size: 0.82rem; white-space: nowrap;">
+            <span>🧪 Wpisz Oprysk</span>
+          </button>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+      <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+        📋 Historia wykonanych zabiegów:
+      </div>
+    `;
+  }
+
+  // HISTORIA ZABIEGÓW
+  if (filtered.length === 0) {
+    html += `
+      <div class="empty-state">
+        <div class="empty-icon">🧪</div>
+        <h3>Brak wykonanych zabiegów</h3>
+        <p>Gdy wykonasz oprysk lub nawożenie, kliknij <strong>Wpisz Oprysk</strong> przy danym polu!</p>
+      </div>
+    `;
+    container.innerHTML = html;
+  } else {
+    html += filtered.map(t => {
+      const dateFormatted = new Date(t.date + 'T00:00:00').toLocaleDateString('pl-PL', { day:'numeric', month:'short', year:'numeric' });
+
+      let typeColor = '#38bdf8';
+      if (t.treatmentType === 'Herbicyd') typeColor = '#22c55e';
+      if (t.treatmentType === 'Fungicyd') typeColor = '#eab308';
+      if (t.treatmentType === 'Insektycyd') typeColor = '#ef4444';
+      if (t.treatmentType.includes('Nawóz')) typeColor = '#a855f7';
+
+      return `
+        <div class="sow-card" id="treatment-card-${t.id}">
+          <div class="sow-card-header">
+            <div>
+              <div class="sow-name">🧪 ${escapeHTML(t.product)}</div>
+              <div class="sow-subtitle">🌾 Pole: <strong>${escapeHTML(t.fieldName)}</strong> | 📅 ${dateFormatted}</div>
+            </div>
+            <span class="badge" style="background:#1e293b; color:${typeColor}; border:1px solid ${typeColor};">
+              ${escapeHTML(t.treatmentType)}
+            </span>
+          </div>
+
+          <div style="font-size:0.85rem; margin:8px 0; color:var(--text-secondary);">
+            <div>💧 Dawka: <strong>${escapeHTML(t.dosePerHa || 'Nie podano')}</strong> ${t.waterVolume ? `| Woda: ${escapeHTML(t.waterVolume)} l/ha` : ''}</div>
+            ${t.reasonTarget ? `<div>🎯 Zwalczany agrofag / Cel: <strong>${escapeHTML(t.reasonTarget)}</strong></div>` : ''}
+            ${t.notes ? `<div style="margin-top:4px;">📝 Warunki: <em>${escapeHTML(t.notes)}</em></div>` : ''}
+          </div>
+
+          <div class="sow-actions">
+            <button class="icon-btn btn-edit-treatment" data-id="${t.id}" title="Edytuj">✏️</button>
+            <button class="icon-btn btn-delete-treatment" data-id="${t.id}" title="Usuń" style="color:var(--accent-red)">🗑️</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+  }
+
+  // Podpięcie przycisków szybkiego oprysku
+  container.querySelectorAll('.btn-quick-spray-field').forEach(btn => {
+    btn.onclick = () => {
+      const fId = btn.dataset.fieldId;
+      openTreatmentModal(null, fId);
+    };
+  });
+
+  // Podpięcie edycji i usuwania
+  filtered.forEach(t => {
+    const card = document.getElementById(`treatment-card-${t.id}`);
+    if (!card) return;
+
+    const btnEdit = card.querySelector('.btn-edit-treatment');
+    const btnDelete = card.querySelector('.btn-delete-treatment');
+
+    if (btnEdit) btnEdit.onclick = () => openTreatmentModal(t);
+    if (btnDelete) btnDelete.onclick = () => deleteTreatment(t.id);
+  });
+}
+
+function openFieldModal(fieldData = null) {
+  const modal = document.getElementById('field-modal');
+  const title = document.getElementById('field-modal-title');
+  const form = document.getElementById('field-form');
+  if (!modal || !form) return;
+
+  form.reset();
+
+  if (fieldData && fieldData.id) {
+    title.textContent = 'Edytuj Pole / Działkę';
+    document.getElementById('modal-field-id').value = fieldData.id;
+    document.getElementById('modal-field-name').value = fieldData.name || '';
+    document.getElementById('modal-field-area').value = fieldData.areaHa || '';
+    document.getElementById('modal-field-parcel').value = fieldData.parcelNo || '';
+    document.getElementById('modal-field-crop').value = fieldData.crop || '';
+    document.getElementById('modal-field-variety').value = fieldData.variety || '';
+    document.getElementById('modal-field-sowing-date').value = fieldData.sowingDate || '';
+    document.getElementById('modal-field-notes').value = fieldData.notes || '';
+  } else {
+    title.textContent = 'Dodaj Nowe Pole / Działkę';
+    document.getElementById('modal-field-id').value = '';
+    document.getElementById('modal-field-sowing-date').value = new Date().toISOString().split('T')[0];
+  }
+
+  modal.classList.add('active');
+}
+
+function closeFieldModal() {
+  const modal = document.getElementById('field-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveFieldFromModal() {
+  const id = document.getElementById('modal-field-id').value;
+  const name = document.getElementById('modal-field-name').value.trim();
+  const areaHa = parseFloat(document.getElementById('modal-field-area').value) || 0;
+  const parcelNo = document.getElementById('modal-field-parcel').value.trim();
+  const crop = document.getElementById('modal-field-crop').value.trim();
+  const variety = document.getElementById('modal-field-variety').value.trim();
+  const sowingDate = document.getElementById('modal-field-sowing-date').value;
+  const notes = document.getElementById('modal-field-notes').value.trim();
+
+  if (!name || areaHa <= 0) {
+    showToast('Podaj nazwę pola i poprawną powierzchnię w ha!');
+    return;
+  }
+
+  if (id) {
+    const idx = fields.findIndex(f => f.id === id);
+    if (idx !== -1) {
+      fields[idx] = { ...fields[idx], name, areaHa, parcelNo, crop, variety, sowingDate, notes };
+      showToast('Zaktualizowano dane pola!');
+    }
+  } else {
+    const newField = {
+      id: 'field_' + Date.now(),
+      name,
+      areaHa,
+      parcelNo,
+      crop,
+      variety,
+      sowingDate,
+      notes,
+      createdAt: new Date().toISOString()
+    };
+    fields.push(newField);
+    showToast('Dodano pole do rejestru!');
+  }
+
+  saveFieldsData();
+  closeFieldModal();
+}
+
+function deleteField(id) {
+  if (confirm('Czy na pewno chcesz usunąć to pole z rejestru?')) {
+    fields = fields.filter(f => f.id !== id);
+    saveFieldsData();
+    showToast('Usunięto pole.');
+  }
+}
+
+function openTreatmentModal(treatmentData = null, preselectedFieldId = null) {
+  const modal = document.getElementById('treatment-modal');
+  const title = document.getElementById('treatment-modal-title');
+  const form = document.getElementById('treatment-form');
+  const fieldSelect = document.getElementById('modal-treatment-field');
+  if (!modal || !form || !fieldSelect) return;
+
+  if (fields.length === 0) {
+    showToast('Najpierw dodaj przynajmniej jedno pole!');
+    openFieldModal();
+    return;
+  }
+
+  form.reset();
+
+  fieldSelect.innerHTML = fields.map(f => `
+    <option value="${f.id}" data-name="${escapeHTML(f.name)}">
+      🌾 ${escapeHTML(f.name)} (${parseFloat(f.areaHa).toFixed(2)} ha - ${escapeHTML(f.crop || 'Brak uprawy')})
+    </option>
+  `).join('');
+
+  if (treatmentData && treatmentData.id) {
+    title.textContent = 'Edytuj Zabieg / Oprysk';
+    document.getElementById('modal-treatment-id').value = treatmentData.id;
+    fieldSelect.value = treatmentData.fieldId || fields[0].id;
+    document.getElementById('modal-treatment-date').value = treatmentData.date || '';
+    document.getElementById('modal-treatment-type').value = treatmentData.treatmentType || 'Herbicyd';
+    document.getElementById('modal-treatment-product').value = treatmentData.product || '';
+    document.getElementById('modal-treatment-dose').value = treatmentData.dosePerHa || '';
+    document.getElementById('modal-treatment-water').value = treatmentData.waterVolume || '';
+    document.getElementById('modal-treatment-reason').value = treatmentData.reasonTarget || '';
+    document.getElementById('modal-treatment-notes').value = treatmentData.notes || '';
+  } else {
+    title.textContent = 'Zapisz Nowy Zabieg / Oprysk';
+    document.getElementById('modal-treatment-id').value = '';
+    document.getElementById('modal-treatment-date').value = new Date().toISOString().split('T')[0];
+    if (preselectedFieldId) fieldSelect.value = preselectedFieldId;
+  }
+
+  modal.classList.add('active');
+}
+
+function closeTreatmentModal() {
+  const modal = document.getElementById('treatment-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveTreatmentFromModal() {
+  const id = document.getElementById('modal-treatment-id').value;
+  const fieldSelect = document.getElementById('modal-treatment-field');
+  const fieldId = fieldSelect.value;
+  const selectedOption = fieldSelect.options[fieldSelect.selectedIndex];
+  const fieldName = selectedOption ? selectedOption.dataset.name : 'Pole';
+
+  const date = document.getElementById('modal-treatment-date').value;
+  const treatmentType = document.getElementById('modal-treatment-type').value;
+  const product = document.getElementById('modal-treatment-product').value.trim();
+  const dosePerHa = document.getElementById('modal-treatment-dose').value.trim();
+  const waterVolume = parseInt(document.getElementById('modal-treatment-water').value) || 0;
+  const reasonTarget = document.getElementById('modal-treatment-reason').value.trim();
+  const notes = document.getElementById('modal-treatment-notes').value.trim();
+
+  if (!product || !date) {
+    showToast('Podaj nazwę środka/preparatu i datę zabiegu!');
+    return;
+  }
+
+  if (id) {
+    const idx = treatments.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      treatments[idx] = { ...treatments[idx], fieldId, fieldName, date, treatmentType, product, dosePerHa, waterVolume, reasonTarget, notes };
+      showToast('Zaktualizowano zabieg!');
+    }
+  } else {
+    const newT = {
+      id: 'treatment_' + Date.now(),
+      fieldId,
+      fieldName,
+      date,
+      treatmentType,
+      product,
+      dosePerHa,
+      waterVolume,
+      reasonTarget,
+      notes,
+      createdAt: new Date().toISOString()
+    };
+    treatments.push(newT);
+    showToast('Zapisano zabieg w ewidencji!');
+  }
+
+  saveTreatmentsData();
+  closeTreatmentModal();
+}
+
+function deleteTreatment(id) {
+  if (confirm('Czy na pewno chcesz usunąć ten wpis o zabiegu?')) {
+    treatments = treatments.filter(t => t.id !== id);
+    saveTreatmentsData();
+    showToast('Usunięto wpis o zabiegu.');
+  }
+}
+
+/* ==========================================================================
+   KSIĘGA POLOWA - WIELOLETNIA HISTORIA ZABIEGÓW NA POLU (4+ LATA)
+   ========================================================================== */
+
+let activeHistoryFieldId = null;
+
+function openFieldHistoryModal(fieldId) {
+  activeHistoryFieldId = fieldId;
+  const field = fields.find(f => f.id === fieldId);
+  if (!field) return;
+
+  const modal = document.getElementById('field-history-modal');
+  const nameEl = document.getElementById('history-modal-field-name');
+  const infoEl = document.getElementById('history-modal-field-info');
+  const container = document.getElementById('history-timeline-container');
+  const btnClose = document.getElementById('btn-close-history-modal');
+  const btnAdd = document.getElementById('btn-history-add-treatment');
+
+  if (!modal || !nameEl || !infoEl || !container) return;
+
+  nameEl.innerHTML = `🌾 Historia Pola: <strong>${escapeHTML(field.name)}</strong>`;
+  infoEl.innerHTML = `📐 Powierzchnia: <strong>${parseFloat(field.areaHa).toFixed(2)} ha</strong> ${field.parcelNo ? `| ${escapeHTML(field.parcelNo)}` : ''} | Uprawa: <strong>${escapeHTML(field.crop || 'Brak')}</strong> (${escapeHTML(field.variety || '')})`;
+
+  if (btnClose) btnClose.onclick = closeFieldHistoryModal;
+  if (btnAdd) {
+    btnAdd.onclick = () => {
+      closeFieldHistoryModal();
+      openTreatmentModal(null, field.id);
+    };
+  }
+
+  // Pobierz wszystkie zabiegi dla tego pola
+  const fieldTreatments = treatments.filter(t => t.fieldId === field.id);
+  const sorted = [...fieldTreatments].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  if (sorted.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 24px 10px;">
+        <div class="empty-icon">📜</div>
+        <h4>Brak wpisów w historii tego pola</h4>
+        <p>Możesz zapisać zabiegi z tego roku oraz z poprzednich lat (np. 2023, 2024, 2025, 2026)!</p>
+      </div>
+    `;
+    modal.classList.add('active');
+    return;
+  }
+
+  // Pogrupuj zabiegi po latach (np. 2026, 2025, 2024, 2023...)
+  const groupsByYear = {};
+  sorted.forEach(t => {
+    const yr = new Date(t.date + 'T00:00:00').getFullYear() || 'Inne';
+    if (!groupsByYear[yr]) groupsByYear[yr] = [];
+    groupsByYear[yr].push(t);
+  });
+
+  const years = Object.keys(groupsByYear).sort((a,b) => b - a);
+
+  let html = '';
+  years.forEach(year => {
+    const list = groupsByYear[year];
+    html += `
+      <div style="margin-bottom: 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#1e293b; padding:8px 12px; border-radius:8px; border-left:4px solid #ca8a04; margin-bottom:10px;">
+          <div style="font-weight:800; font-size:1rem; color:#eab308;">📅 SEZON / ROK ${year}</div>
+          <div style="font-size:0.8rem; color:var(--text-secondary); font-weight:700;">Zabiegów: ${list.length}</div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+    `;
+
+    list.forEach(t => {
+      const dateFormatted = new Date(t.date + 'T00:00:00').toLocaleDateString('pl-PL', { day:'numeric', month:'long', year:'numeric' });
+
+      let typeColor = '#38bdf8';
+      if (t.treatmentType === 'Herbicyd') typeColor = '#22c55e';
+      if (t.treatmentType === 'Fungicyd') typeColor = '#eab308';
+      if (t.treatmentType === 'Insektycyd') typeColor = '#ef4444';
+      if (t.treatmentType.includes('Nawóz')) typeColor = '#a855f7';
+
+      html += `
+        <div class="card" style="padding: 12px 14px; margin-bottom: 0; background: var(--bg-card); border: 1px solid var(--border-color);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+            <div style="font-weight:800; font-size:0.95rem; color:#ffffff;">🧪 ${escapeHTML(t.product)}</div>
+            <span class="badge" style="background:#1e293b; color:${typeColor}; border:1px solid ${typeColor}; font-size:0.75rem;">
+              ${escapeHTML(t.treatmentType)}
+            </span>
+          </div>
+
+          <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.4;">
+            <div>📅 Data: <strong>${dateFormatted}</strong> | 💧 Dawka: <strong>${escapeHTML(t.dosePerHa || '–')}</strong> ${t.waterVolume ? `(woda: ${t.waterVolume} l/ha)` : ''}</div>
+            ${t.reasonTarget ? `<div>🎯 Cel: <strong>${escapeHTML(t.reasonTarget)}</strong></div>` : ''}
+            ${t.notes ? `<div>📝 Uwagi: <em>${escapeHTML(t.notes)}</em></div>` : ''}
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button class="icon-btn btn-hist-edit" data-id="${t.id}" title="Edytuj" style="padding:4px 8px; font-size:0.85rem;">✏️</button>
+            <button class="icon-btn btn-hist-del" data-id="${t.id}" title="Usuń" style="padding:4px 8px; font-size:0.85rem; color:var(--accent-red);">🗑️</button>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  // Podepnij akcje edycji i usuwania wewnątrz modalu historii
+  container.querySelectorAll('.btn-hist-edit').forEach(btn => {
+    btn.onclick = () => {
+      const tId = btn.dataset.id;
+      const treatment = treatments.find(t => t.id === tId);
+      if (treatment) {
+        closeFieldHistoryModal();
+        openTreatmentModal(treatment);
+      }
+    };
+  });
+
+  container.querySelectorAll('.btn-hist-del').forEach(btn => {
+    btn.onclick = () => {
+      const tId = btn.dataset.id;
+      deleteTreatment(tId);
+      openFieldHistoryModal(activeHistoryFieldId);
+    };
+  });
+
+  modal.classList.add('active');
+}
+
+function closeFieldHistoryModal() {
+  const modal = document.getElementById('field-history-modal');
+  if (modal) modal.classList.remove('active');
+  activeHistoryFieldId = null;
+}
+
+
 

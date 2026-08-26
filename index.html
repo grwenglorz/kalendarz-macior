@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Maciory">
   <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300e676'/><text x='50' y='65' font-size='50' text-anchor='middle'>🐖</text></svg>">
   
-  <link rel="stylesheet" href="styles.css?v=26">
+  <link rel="stylesheet" href="styles.css?v=29">
 </head>
 <body>
 
@@ -53,14 +53,15 @@
             <div class="lobby-card-arrow">➜</div>
           </button>
 
-          <!-- KAFEL 2: PUSTY / WKRÓTCE -->
-          <div class="lobby-card lobby-card-empty">
-            <div class="lobby-card-icon">⏳</div>
+          <!-- KAFEL 2: POLA I UPRAWY -->
+          <button id="btn-open-fields" class="lobby-card lobby-card-fields">
+            <div class="lobby-card-icon">🌾</div>
             <div class="lobby-card-content">
-              <div class="lobby-card-title">WKRÓTCE</div>
-              <div class="lobby-card-desc">Nowy moduł w przygotowaniu...</div>
+              <div class="lobby-card-title">POLA I UPRAWY</div>
+              <div class="lobby-card-desc">Zasiewy, hektary i ewidencja wykonanych oprysków</div>
             </div>
-          </div>
+            <div class="lobby-card-arrow">➜</div>
+          </button>
         </div>
       </main>
     </div>
@@ -248,7 +249,93 @@
         <span>Rodzina</span>
       </button>
     </nav>
-  </div> <!-- KONIEC screen-pigs -->
+    </div> <!-- KONIEC screen-pigs -->
+
+    <!-- ==========================================
+         EKRAN 3: MODUŁ POLA I UPRAWY
+         ========================================== -->
+    <div id="screen-fields" class="screen">
+      
+      <!-- NAGŁÓWEK APLIKACJI PÓL -->
+      <header class="app-header">
+        <div class="brand">
+          <button class="icon-btn" id="btn-back-lobby-fields" title="Wróć do Lobby" style="margin-right: 4px; font-size: 1rem;">
+            <span>🏠</span>
+          </button>
+          <div class="brand-text">
+            <h1>Pola i Uprawy</h1>
+            <p>Zasiewy i Ewidencja Oprysków</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn btn-toggle-theme-global" title="Zmień motyw">☀️</button>
+        </div>
+      </header>
+
+      <!-- GŁÓWNA ZAWARTOŚĆ PÓL -->
+      <main class="main-content">
+
+        <!-- ZAKŁADKA 1: DZIAŁKI I POLA -->
+        <section id="tab-fields-list" class="tab-pane active">
+          
+          <!-- STATYSTYKI PÓL -->
+          <div id="fields-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <!-- wypełniane przez app.js -->
+          </div>
+
+          <!-- PRZYCISKI AKCJI -->
+          <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+            <button class="btn btn-primary" id="btn-add-field-main" style="flex: 1;">
+              <span>➕ Dodaj Pole</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-add-treatment-quick" style="flex: 1;">
+              <span>🧪 Zapisz Oprysk</span>
+            </button>
+          </div>
+
+          <!-- WYSZUKIWARKA -->
+          <div class="search-filter-bar">
+            <input type="text" id="field-search-input" class="form-control" placeholder="🔍 Szukaj pola, działki lub uprawy...">
+          </div>
+
+          <!-- LISTA PÓL -->
+          <div id="fields-container">
+            <!-- Wstrzykiwane przez app.js -->
+          </div>
+        </section>
+
+        <!-- ZAKŁADKA 2: REJESTR OPRYSKÓW I ZABIEGÓW -->
+        <section id="tab-treatments-list" class="tab-pane">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h2 style="font-size: 1.15rem; font-weight: 700;">🧪 Ewidencja Zabiegów</h2>
+            <button class="btn btn-primary btn-sm" id="btn-add-treatment-main">➕ Nowy Zabieg</button>
+          </div>
+
+          <!-- WYSZUKIWARKA OPRYSKÓW -->
+          <div class="search-filter-bar">
+            <input type="text" id="treatment-search-input" class="form-control" placeholder="🔍 Szukaj po polu, środku lub dacie...">
+          </div>
+
+          <!-- LISTA WYKONANYCH ZABIEGÓW -->
+          <div id="treatments-container">
+            <!-- Wstrzykiwane przez app.js -->
+          </div>
+        </section>
+
+      </main>
+
+      <!-- NAWIGACJA DOLNA DLA PÓL -->
+      <nav class="bottom-nav">
+        <button class="nav-item-fields active" data-field-tab="fields-list">
+          <span class="nav-icon">🌱</span>
+          <span>Działki i Pola</span>
+        </button>
+        <button class="nav-item-fields" data-field-tab="treatments-list">
+          <span class="nav-icon">🧪</span>
+          <span>Ewidencja Oprysków</span>
+        </button>
+      </nav>
+    </div> <!-- KONIEC screen-fields -->
 
   </div> <!-- KONIEC app-container -->
 
@@ -291,11 +378,6 @@
           </select>
         </div>
 
-        <div class="form-group">
-          <label for="modal-sow-notes">Notatki / Uwagi:</label>
-          <textarea id="modal-sow-notes" class="form-control" rows="2" placeholder="np. Miot #2, dobra mleczność..."></textarea>
-        </div>
-
         <div style="display: flex; gap: 10px; margin-top: 20px;">
           <button type="button" class="btn btn-secondary" id="btn-close-modal">Anuluj</button>
           <button type="submit" class="btn btn-primary">Zapisz</button>
@@ -304,6 +386,148 @@
     </div>
   </div>
 
-  <script src="app.js?v=26"></script>
+  <!-- MODAL DODAWANIA / EDYCJI POLA -->
+  <div class="modal-overlay" id="field-modal">
+    <div class="modal-card">
+      <h3 id="field-modal-title" style="margin-bottom: 16px;">Dodaj Pole / Działkę</h3>
+      <form id="field-form">
+        <input type="hidden" id="modal-field-id">
+
+        <div class="form-group">
+          <label for="modal-field-name">Nazwa pola (własna):*</label>
+          <input type="text" id="modal-field-name" class="form-control" placeholder="np. Za lasem, Koło drogi, Kawałek pod strugą" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modal-field-area">Powierzchnia (ha):*</label>
+            <input type="number" step="0.01" id="modal-field-area" class="form-control" placeholder="np. 12.50" required>
+          </div>
+          <div class="form-group">
+            <label for="modal-field-parcel">Nr działki / geodezyjny:</label>
+            <input type="text" id="modal-field-parcel" class="form-control" placeholder="np. Dz. 145/2">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modal-field-crop">Zasiana roślina / uprawa:*</label>
+            <input type="text" id="modal-field-crop" class="form-control" placeholder="np. Pszenica ozima, Rzepak, Kukurydza" required>
+          </div>
+          <div class="form-group">
+            <label for="modal-field-variety">Odmiana:</label>
+            <input type="text" id="modal-field-variety" class="form-control" placeholder="np. RGT Kilimanjaro, Pioneer">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="modal-field-sowing-date">Data siewu / sadzenia:</label>
+          <input type="date" id="modal-field-sowing-date" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="modal-field-notes">Uwagi (klasa ziemi, przedplon itp.):</label>
+          <textarea id="modal-field-notes" class="form-control" rows="2" placeholder="np. Klasa IIIb, przedplon: rzepak"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-field-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Zapisz Pole</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DODAWANIA / EDYCJI ZABIEGU (OPRYSKU / NAWOŻENIA) -->
+  <div class="modal-overlay" id="treatment-modal">
+    <div class="modal-card">
+      <h3 id="treatment-modal-title" style="margin-bottom: 16px;">Zapisz Zabieg / Oprysk</h3>
+      <form id="treatment-form">
+        <input type="hidden" id="modal-treatment-id">
+
+        <div class="form-group">
+          <label for="modal-treatment-field">Pole / Uprawa:*</label>
+          <select id="modal-treatment-field" class="form-control" required>
+            <!-- wypełniane dynamicznie przez app.js -->
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modal-treatment-date">Data zabiegu:*</label>
+            <input type="date" id="modal-treatment-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="modal-treatment-type">Rodzaj zabiegu:*</label>
+            <select id="modal-treatment-type" class="form-control">
+              <option value="Herbicyd">🌿 Herbicyd (odchwaszczanie)</option>
+              <option value="Fungicyd">🍄 Fungicyd (grzybobójczy T1/T2/T3)</option>
+              <option value="Insektycyd">🐛 Insektycyd (robak)</option>
+              <option value="Regulator">📏 Regulator wzrostu (skracanie)</option>
+              <option value="Nawóz dolistny">🧪 Nawóz dolistny / Odżywka</option>
+              <option value="Nawóz doglebowy">🌱 Nawożenie doglebowe (NPK/Saletra)</option>
+              <option value="Inny">📋 Inny zabieg</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="modal-treatment-product">Zastosowany środek / preparat:*</label>
+          <input type="text" id="modal-treatment-product" class="form-control" placeholder="np. Input Plex 1.0 l/ha + Mocznik 5 kg/ha" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modal-treatment-dose">Dawka na 1 ha:</label>
+            <input type="text" id="modal-treatment-dose" class="form-control" placeholder="np. 1.0 l/ha, 200 kg/ha">
+          </div>
+          <div class="form-group">
+            <label for="modal-treatment-water">Ilość wody (l/ha):</label>
+            <input type="number" id="modal-treatment-water" class="form-control" placeholder="np. 200">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="modal-treatment-reason">Przyczyna zabiegu / zwalczany agrofag:</label>
+          <input type="text" id="modal-treatment-reason" class="form-control" placeholder="np. Mączniak, miotła zbożowa, mszyce">
+        </div>
+
+        <div class="form-group">
+          <label for="modal-treatment-notes">Warunki pogodowe / Uwagi:</label>
+          <textarea id="modal-treatment-notes" class="form-control" rows="2" placeholder="np. Temp. 18°C, wiatr 2 m/s, wieczorem"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-treatment-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Zapisz Zabieg</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL HISTORII POLA I WIELOLETNICH ZABIEGÓW (KSIĘGA POLOWA) -->
+  <div class="modal-overlay" id="field-history-modal">
+    <div class="modal-card" style="max-height: 85vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+        <div>
+          <h3 id="history-modal-field-name" style="margin-bottom: 2px;">🌾 Historia Pola</h3>
+          <div id="history-modal-field-info" style="font-size: 0.82rem; color: var(--text-secondary);"></div>
+        </div>
+        <button type="button" class="icon-btn" id="btn-close-history-modal" style="font-size: 1.1rem; padding: 4px 8px;">✖️</button>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <button class="btn btn-primary" id="btn-history-add-treatment" style="width: 100%;">
+          <span>➕ Dodaj Zabieg / Oprysk na to pole</span>
+        </button>
+      </div>
+
+      <div id="history-timeline-container">
+        <!-- Generowane dynamicznie przez app.js -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=29"></script>
 </body>
 </html>
