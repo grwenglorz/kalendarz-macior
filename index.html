@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=48">
+  <link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body>
 
@@ -48,7 +48,7 @@
           Wybierz dział gospodarstwa:
         </div>
 
-        <div class="lobby-container" style="margin-bottom: 24px;">
+        <div class="lobby-container">
           <!-- KAFEL 1: ŚWINIE -->
           <button id="btn-open-pigs" class="lobby-card lobby-card-pigs">
             <div class="lobby-card-icon">🐖</div>
@@ -68,13 +68,45 @@
             </div>
             <div class="lobby-card-arrow">➜</div>
           </button>
-        </div>
 
-        <!-- USTAWIENIA GOSPODARSTWA (PRZENIESIONE Z ZAKŁADKI RODZINA) -->
-        <div style="font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 14px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-          ⚙️ Ustawienia i Synchronizacja Gospodarstwa:
+          <!-- KAFEL 3: USTAWIENIA GOSPODARSTWA -->
+          <button id="btn-open-settings" class="lobby-card lobby-card-settings">
+            <div class="lobby-card-icon">⚙️</div>
+            <div class="lobby-card-content">
+              <div class="lobby-card-title">USTAWIENIA</div>
+              <div class="lobby-card-desc">Synchronizacja w chmurze, powiadomienia i kopia zapasowa</div>
+            </div>
+            <div class="lobby-card-arrow">➜</div>
+          </button>
         </div>
+      </main>
+    </div>
 
+    <!-- ==========================================
+         EKRAN 4: MODUŁ USTAWIENIA GOSPODARSTWA
+         ========================================== -->
+    <div id="screen-settings" class="screen">
+      <header class="app-header">
+        <div class="brand">
+          <button class="icon-btn" id="btn-back-lobby-settings" title="Wróć do Lobby" style="margin-right: 4px; font-size: 1rem;">
+            <span>🏠</span>
+          </button>
+          <div class="brand-text">
+            <h1>Ustawienia</h1>
+            <p>Chmura, Powiadomienia i Kopia</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn btn-toggle-theme-global" title="Zmień motyw">☀️</button>
+        </div>
+      </header>
+
+      <!-- BADGE STATUSU CHMURY W USTAWIENIACH -->
+      <div id="cloud-badge-wrapper-settings" style="padding: 6px 16px; text-align: center; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: block;">
+        <span id="cloud-status-badge-settings" class="badge" style="font-size: 0.78rem;">⚪ Chmura nieaktywna (Wpisz Kod)</span>
+      </div>
+
+      <main class="main-content" style="padding-bottom: 30px;">
         <!-- AUTOMATYCZNA CHMURA GOSPODARSTWA -->
         <div class="card" style="border: 2px solid var(--primary); background: linear-gradient(145deg, var(--bg-card) 0%, rgba(0, 230, 118, 0.08) 100%); margin-bottom: 16px;">
           <h2 class="card-title">☁️ Synchronizacja na Żywo (PC & Telefon)</h2>
@@ -564,6 +596,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=48"></script>
+  <script src="app.js?v=49"></script>
 </body>
 </html>

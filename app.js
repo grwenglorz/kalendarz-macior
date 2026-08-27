@@ -80,8 +80,10 @@ let treatments = [];
 function setupLobbyNavigation() {
   const btnOpenPigs = document.getElementById('btn-open-pigs');
   const btnOpenFields = document.getElementById('btn-open-fields');
+  const btnOpenSettings = document.getElementById('btn-open-settings');
   const btnBackLobby = document.getElementById('btn-back-lobby');
   const btnBackLobbyFields = document.getElementById('btn-back-lobby-fields');
+  const btnBackLobbySettings = document.getElementById('btn-back-lobby-settings');
 
   if (btnOpenPigs) {
     btnOpenPigs.addEventListener('click', () => {
@@ -92,6 +94,12 @@ function setupLobbyNavigation() {
   if (btnOpenFields) {
     btnOpenFields.addEventListener('click', () => {
       switchScreen('fields');
+    });
+  }
+
+  if (btnOpenSettings) {
+    btnOpenSettings.addEventListener('click', () => {
+      switchScreen('settings');
     });
   }
 
@@ -106,16 +114,24 @@ function setupLobbyNavigation() {
       switchScreen('lobby');
     });
   }
+
+  if (btnBackLobbySettings) {
+    btnBackLobbySettings.addEventListener('click', () => {
+      switchScreen('lobby');
+    });
+  }
 }
 
 function switchScreen(screenName) {
   const screenLobby = document.getElementById('screen-lobby');
   const screenPigs = document.getElementById('screen-pigs');
   const screenFields = document.getElementById('screen-fields');
+  const screenSettings = document.getElementById('screen-settings');
 
   if (screenLobby) screenLobby.classList.remove('active');
   if (screenPigs) screenPigs.classList.remove('active');
   if (screenFields) screenFields.classList.remove('active');
+  if (screenSettings) screenSettings.classList.remove('active');
 
   if (screenName === 'pigs') {
     if (screenPigs) screenPigs.classList.add('active');
@@ -127,6 +143,8 @@ function switchScreen(screenName) {
     renderFieldsStats();
     renderFieldsList();
     renderTreatmentsList();
+  } else if (screenName === 'settings') {
+    if (screenSettings) screenSettings.classList.add('active');
   } else {
     if (screenLobby) screenLobby.classList.add('active');
   }
@@ -318,7 +336,8 @@ function updateCloudStatusBadge(isConnected) {
   const badges = [
     document.getElementById('cloud-status-badge'),
     document.getElementById('cloud-status-badge-fields'),
-    document.getElementById('cloud-status-badge-lobby')
+    document.getElementById('cloud-status-badge-lobby'),
+    document.getElementById('cloud-status-badge-settings')
   ];
 
   badges.forEach(badge => {
