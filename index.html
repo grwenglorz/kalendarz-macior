@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=49">
+  <link rel="stylesheet" href="styles.css?v=56">
 </head>
 <body>
 
@@ -327,16 +327,9 @@
             <p style="font-size: 0.82rem; color: var(--text-secondary);">Wybierz uprawę, aby zobaczyć i dodać powiązane pola:</p>
           </div>
           
-          <!-- STATYSTYKI PÓL (KLIKALNE KAFELKI UPRAW) -->
-          <div id="fields-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <!-- STATYSTYKI PÓL (KLIKALNE KAFELKI UPRAW W TYM KAFELEK DODAJ POLE) -->
+          <div id="fields-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
             <!-- wypełniane przez app.js -->
-          </div>
-
-          <!-- PRZYCISK DODAWANIA POLA -->
-          <div style="margin-bottom: 14px;">
-            <button class="btn btn-primary" id="btn-add-field-menu" style="width: 100%; font-size: 1.02rem; padding: 14px;">
-              <span>➕ Dodaj Nowe Pole</span>
-            </button>
           </div>
         </section>
 
@@ -351,14 +344,9 @@
             <input type="text" id="field-search-input" class="form-control" placeholder="🔍 Szukaj pola, działki lub uprawy...">
           </div>
 
-          <!-- KAFELKI / CHIPSY FILTRACJI UPRAW (CZYTELNE, 2 RZĘDY PO 3 KAFELKI) -->
+          <!-- KAFELKI / CHIPSY FILTRACJI UPRAW (DYNAMICZNIE DLA KAŻDEJ UPRAWY) -->
           <div id="field-crop-chips" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">
-            <button class="chip active" data-crop-filter="all" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌾 Wszystkie</button>
-            <button class="chip" data-crop-filter="pszenica" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌾 Pszenica</button>
-            <button class="chip" data-crop-filter="rzepak" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌼 Rzepak</button>
-            <button class="chip" data-crop-filter="kukurydza" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🌽 Kukurydza</button>
-            <button class="chip" data-crop-filter="jeczmien" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🟠 Jęczmień</button>
-            <button class="chip" data-crop-filter="owies" style="justify-content: center; text-align: center; width: 100%; padding: 8px 4px;">🔷 Owies</button>
+            <!-- wypełniane przez renderCropFilterChips w app.js -->
           </div>
 
           <!-- LISTA PÓL ZE ZINTEGROWANYMI OPRYSKAMI -->
@@ -488,9 +476,15 @@
           <input type="date" id="modal-field-sowing-date" class="form-control">
         </div>
 
-        <div class="form-group">
+        <div class="form-group" style="margin-bottom: 6px;">
           <label for="modal-field-sprays">Opryski / Zabiegi:</label>
           <input type="text" id="modal-field-sprays" class="form-control" placeholder="np. Input Plex 1.0 l/ha, Boxer 2.0 l/ha, Mocznik 5 kg...">
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+          <input type="checkbox" id="modal-field-sync-sprays" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
+          <label for="modal-field-sync-sprays" style="font-size: 0.82rem; color: #ffffff; cursor: pointer; user-select: none;">
+            🔄 Zapisz te opryski we <strong>wszystkich polach z tą uprawą</strong>
+          </label>
         </div>
 
         <div class="form-group">
@@ -513,11 +507,17 @@
       <form id="treatment-form">
         <input type="hidden" id="modal-treatment-id">
 
-        <div class="form-group">
-          <label for="modal-treatment-field">Pole / Uprawa:*</label>
+        <div class="form-group" style="margin-bottom: 6px;">
+          <label for="modal-treatment-field">Pole / Działka:*</label>
           <select id="modal-treatment-field" class="form-control" required>
             <!-- wypełniane dynamicznie przez app.js -->
           </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+          <input type="checkbox" id="modal-treatment-apply-all" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
+          <label for="modal-treatment-apply-all" id="modal-treatment-apply-all-label" style="font-size: 0.82rem; color: #ffffff; cursor: pointer; user-select: none;">
+            🔄 Zapisz ten oprysk we <strong>wszystkich polach z tą uprawą</strong>
+          </label>
         </div>
 
         <div class="form-row">
@@ -596,6 +596,27 @@
     </div>
   </div>
 
-  <script src="app.js?v=49"></script>
+  <!-- MODAL DODAWANIA NOWEGO KAFELKA / UPRAWY -->
+  <div class="modal-overlay" id="crop-modal">
+    <div class="modal-card">
+      <h3 id="crop-modal-title" style="margin-bottom: 12px; color: #ffffff;">➕ Dodaj Nowy Kafelek Uprawy</h3>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+        Wpisz nazwę rośliny, aby utworzyć dla niej osobny kafelek w menu i móc dodawać do niej pola:
+      </p>
+      <form id="crop-form">
+        <div class="form-group">
+          <label for="modal-crop-name">Nazwa Uprawy / Rośliny:*</label>
+          <input type="text" id="modal-crop-name" class="form-control" placeholder="np. Soja, Buraki, Słonecznik, Żyto, Łubin, Lucerna" required autofocus>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-crop-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Utwórz Kafelek</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js?v=56"></script>
 </body>
 </html>

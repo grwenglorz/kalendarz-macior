@@ -76,6 +76,8 @@ function updateThemeIcon(theme) {
 
 let fields = [];
 let treatments = [];
+let customCrops = [];
+let deletedBaseCrops = [];
 
 function setupLobbyNavigation() {
   const btnOpenPigs = document.getElementById('btn-open-pigs');
@@ -381,7 +383,9 @@ async function pushFarmDataToCloud() {
       timestamp: Date.now(),
       sows: sows,
       fields: fields,
-      treatments: treatments
+      treatments: treatments,
+      customCrops: customCrops,
+      deletedBaseCrops: deletedBaseCrops
     };
 
     await fetch(url, {
@@ -389,7 +393,7 @@ async function pushFarmDataToCloud() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    console.log('Wysłano pełne dane gospodarstwa (maciory + pola + opryski) do chmury.');
+    console.log('Wysłano pełne dane gospodarstwa (maciory + pola + uprawy) do chmury.');
   } catch (err) {
     console.log('Błąd wysyłania do chmury:', err);
   }
@@ -479,6 +483,24 @@ function applyRemoteSyncData(dataObj, showToastNotice = false) {
         treatments = dataObj.treatments;
         saveTreatmentsData(true);
         renderTreatmentsList();
+        changed = true;
+      }
+    }
+    if (Array.isArray(dataObj.customCrops)) {
+      if (JSON.stringify(dataObj.customCrops) !== JSON.stringify(customCrops)) {
+        customCrops = dataObj.customCrops;
+        saveCustomCrops(true);
+        renderFieldsStats();
+        renderCropFilterChips();
+        changed = true;
+      }
+    }
+    if (Array.isArray(dataObj.deletedBaseCrops)) {
+      if (JSON.stringify(dataObj.deletedBaseCrops) !== JSON.stringify(deletedBaseCrops)) {
+        deletedBaseCrops = dataObj.deletedBaseCrops;
+        localStorage.setItem('prosnosc_swin_deleted_base_crops', JSON.stringify(deletedBaseCrops));
+        renderFieldsStats();
+        renderCropFilterChips();
         changed = true;
       }
     }
@@ -876,7 +898,8 @@ function setupDataSyncListeners() {
         familyCode: familyCode || '',
         sows: sows,
         fields: fields,
-        treatments: treatments
+        treatments: treatments,
+        customCrops: customCrops
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullFarmBackup, null, 2));
       const downloadAnchor = document.createElement('a');
@@ -885,7 +908,7 @@ function setupDataSyncListeners() {
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
-      showToast('💾 Pobrano pełną bazę gospodarstwa (maciory + pola)!');
+      showToast('💾 Pobrano pełną bazę gospodarstwa (maciory + pola + uprawy)!');
     });
   }
 
@@ -918,6 +941,10 @@ function setupDataSyncListeners() {
               treatments = imported.treatments;
               saveTreatmentsData();
               renderTreatmentsList();
+            }
+            if (Array.isArray(imported.customCrops)) {
+              customCrops = imported.customCrops;
+              saveCustomCrops();
             }
             if (imported.familyCode) {
               connectFamilyCloud(imported.familyCode, true);
@@ -1264,9 +1291,129 @@ function checkUpcomingFarrowingsAndNotify() {
    ========================================================================== */
 
 function initFieldsModule() {
+  loadCustomCrops();
+  loadDeletedBaseCrops();
   loadFieldsData();
   loadTreatmentsData();
   setupFieldsModuleListeners();
+}
+
+function loadCustomCrops() {
+  const saved = localStorage.getItem('prosnosc_swin_custom_crops');
+  if (saved) {
+    try {
+      customCrops = JSON.parse(saved);
+    } catch (e) {
+      customCrops = [];
+    }
+  } else {
+    customCrops = [];
+  }
+}
+
+function loadDeletedBaseCrops() {
+  const saved = localStorage.getItem('prosnosc_swin_deleted_base_crops');
+  if (saved) {
+    try {
+      deletedBaseCrops = JSON.parse(saved);
+    } catch (e) {
+      deletedBaseCrops = [];
+    }
+  } else {
+    deletedBaseCrops = [];
+  }
+}
+
+function saveCustomCrops(skipCloudPush = false) {
+  localStorage.setItem('prosnosc_swin_custom_crops', JSON.stringify(customCrops));
+  renderFieldsStats();
+  renderCropFilterChips();
+  if (!skipCloudPush && familyCode) {
+    pushFarmDataToCloud();
+  }
+}
+
+function openCropModal() {
+  const modal = document.getElementById('crop-modal');
+  const form = document.getElementById('crop-form');
+  const input = document.getElementById('modal-crop-name');
+  if (!modal || !form) return;
+  form.reset();
+  modal.classList.add('active');
+  if (input) setTimeout(() => input.focus(), 150);
+}
+
+function closeCropModal() {
+  const modal = document.getElementById('crop-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveCropCategoryFromModal() {
+  const input = document.getElementById('modal-crop-name');
+  const name = (input?.value || '').trim();
+  if (!name) {
+    showToast('Wpisz nazwę uprawy!');
+    return;
+  }
+
+  const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
+  
+  // Jeśli to była wcześniej usunięta uprawa bazowa, przywróć ją
+  const baseMatch = BASE_CROPS.find(b => b.shortName.toLowerCase() === formattedName.toLowerCase());
+  if (baseMatch && deletedBaseCrops.includes(baseMatch.key)) {
+    deletedBaseCrops = deletedBaseCrops.filter(k => k !== baseMatch.key);
+    localStorage.setItem('prosnosc_swin_deleted_base_crops', JSON.stringify(deletedBaseCrops));
+    if (familyCode) pushFarmDataToCloud();
+    closeCropModal();
+    renderFieldsStats();
+    renderCropFilterChips();
+    showToast(`✅ Przywrócono kafelek dla uprawy: ${formattedName}!`);
+    return;
+  }
+
+  const existsBase = BASE_CROPS.some(b => b.shortName.toLowerCase() === formattedName.toLowerCase() && !deletedBaseCrops.includes(b.key));
+  const existsCustom = customCrops.some(c => c.toLowerCase() === formattedName.toLowerCase());
+
+  if (existsBase || existsCustom) {
+    showToast(`Uprawa "${formattedName}" już istnieje w menu!`);
+    closeCropModal();
+    return;
+  }
+
+  customCrops.push(formattedName);
+  saveCustomCrops();
+  closeCropModal();
+  showToast(`✅ Utworzono kafelek dla uprawy: ${formattedName}!`);
+}
+
+function deleteCropCategory(cropKey, cropName) {
+  const fieldCount = fields.filter(f => filterFieldByCrop(f, cropKey)).length;
+  let confirmMsg = `Czy na pewno chcesz usunąć kafelek uprawy "${cropName}"?`;
+  if (fieldCount > 0) {
+    confirmMsg += `\n(Uwaga: Masz ${fieldCount} działek z tą uprawą. Same działki nie zostaną skasowane, ale kafelek zniknie z podsumowania).`;
+  }
+
+  if (confirm(confirmMsg)) {
+    if (cropKey.startsWith('custom_')) {
+      const targetSlug = cropKey.replace('custom_', '').toLowerCase();
+      customCrops = customCrops.filter(c => c.toLowerCase().replace(/[^a-z0-9]/g, '_') !== targetSlug && c.toLowerCase() !== cropName.toLowerCase());
+      saveCustomCrops();
+    } else {
+      if (!deletedBaseCrops.includes(cropKey)) {
+        deletedBaseCrops.push(cropKey);
+        localStorage.setItem('prosnosc_swin_deleted_base_crops', JSON.stringify(deletedBaseCrops));
+        if (familyCode) pushFarmDataToCloud();
+      }
+    }
+
+    if (currentFieldCropFilter === cropKey) {
+      currentFieldCropFilter = 'all';
+    }
+    renderFieldsStats();
+    renderCropFilterChips();
+    renderFieldsList();
+    showToast(`🗑️ Usunięto kafelek uprawy: ${cropName}`);
+  }
 }
 
 function loadFieldsData() {
@@ -1351,6 +1498,17 @@ function setupFieldsModuleListeners() {
   if (btnAddTreatmentMain) btnAddTreatmentMain.addEventListener('click', () => openTreatmentModal());
   if (btnAddTreatmentQuick) btnAddTreatmentQuick.addEventListener('click', () => openTreatmentModal());
 
+  // Formularz Nowego Kafelka Uprawy
+  const cropForm = document.getElementById('crop-form');
+  const btnCloseCrop = document.getElementById('btn-close-crop-modal');
+  if (cropForm) {
+    cropForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveCropCategoryFromModal();
+    });
+  }
+  if (btnCloseCrop) btnCloseCrop.addEventListener('click', closeCropModal);
+
   // Formularz Pola
   const fieldForm = document.getElementById('field-form');
   const btnCloseField = document.getElementById('btn-close-field-modal');
@@ -1383,16 +1541,6 @@ function setupFieldsModuleListeners() {
       updateVarietySuggestions(cropInput.value);
     });
   }
-
-  // Kafelki / Chipsy filtrowania upraw w widoku Wszystkie Pola
-  const cropChips = document.querySelectorAll('#field-crop-chips .chip');
-  cropChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const cropKey = chip.dataset.cropFilter;
-      currentFieldCropFilter = cropKey;
-      renderFieldsList();
-    });
-  });
 
   // Wyszukiwarki
   const fieldSearch = document.getElementById('field-search-input');
@@ -1452,12 +1600,55 @@ function updateVarietySuggestions(cropName) {
   datalist.innerHTML = varieties.map(v => `<option value="${escapeHTML(v)}">`).join('');
 }
 
+const BASE_CROPS = [
+  { key: 'pszenica', label: 'Pola z pszenicą', shortName: 'Pszenica', icon: '🌾', color: '#38bdf8' },
+  { key: 'rzepak', label: 'Pola z rzepakiem', shortName: 'Rzepak', icon: '🌼', color: '#22c55e' },
+  { key: 'kukurydza', label: 'Pola z kukurydzą', shortName: 'Kukurydza', icon: '🌽', color: '#f59e0b' },
+  { key: 'jeczmien', label: 'Pola z jęczmieniem', shortName: 'Jęczmień', icon: '🟠', color: '#fb923c' },
+  { key: 'owies', label: 'Pola z owsem', shortName: 'Owies', icon: '🔷', color: '#2dd4bf' }
+];
+
+function getAllCropsList() {
+  const list = BASE_CROPS.filter(b => !deletedBaseCrops.includes(b.key));
+  const allCustomSet = new Set(customCrops);
+  
+  fields.forEach(f => {
+    const rawCrop = (f.crop || '').trim();
+    if (!rawCrop) return;
+    const isBase = BASE_CROPS.some(b => filterFieldByCrop(f, b.key));
+    if (!isBase) {
+      const formatted = rawCrop.charAt(0).toUpperCase() + rawCrop.slice(1);
+      allCustomSet.add(formatted);
+    }
+  });
+
+  const colors = ['#a855f7', '#ec4899', '#14b8a6', '#84cc16', '#06b6d4', '#f43f5e', '#e11d48'];
+  let colorIdx = 0;
+
+  allCustomSet.forEach(cName => {
+    const key = 'custom_' + cName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    list.push({
+      key: key,
+      label: `Pola: ${cName}`,
+      shortName: cName,
+      icon: '🌱',
+      color: colors[colorIdx % colors.length],
+      isCustom: true,
+      customName: cName
+    });
+    colorIdx++;
+  });
+
+  return list;
+}
+
 let currentFieldCropFilter = 'all';
 
 function setFieldCropFilter(cropKey, switchTab = true) {
   currentFieldCropFilter = cropKey;
   renderFieldsStats();
   renderFieldsList();
+  renderCropFilterChips();
   if (switchTab) {
     switchFieldTab('fields-all');
   }
@@ -1465,35 +1656,33 @@ function setFieldCropFilter(cropKey, switchTab = true) {
 
 function filterFieldByCrop(f, filterKey) {
   if (!filterKey || filterKey === 'all') return true;
-  const c = (f.crop || '').toLowerCase();
+  const c = (f.crop || '').toLowerCase().trim();
   if (filterKey === 'pszenica') return c.includes('pszenic');
   if (filterKey === 'rzepak') return c.includes('rzepak');
   if (filterKey === 'kukurydza') return c.includes('kukurydz');
   if (filterKey === 'jeczmien') return c.includes('jęczmień') || c.includes('jeczmien');
   if (filterKey === 'owies') return c.includes('owie') || c.includes('ows');
-  return true;
+  
+  if (filterKey.startsWith('custom_')) {
+    const targetCrop = filterKey.replace('custom_', '').toLowerCase();
+    return c.replace(/[^a-z0-9]/g, '_').includes(targetCrop);
+  }
+  return c.includes(filterKey.toLowerCase());
 }
 
 function getCropFilterName(filterKey) {
-  switch(filterKey) {
-    case 'pszenica': return 'Pszenica';
-    case 'rzepak': return 'Rzepak';
-    case 'kukurydza': return 'Kukurydza';
-    case 'jeczmien': return 'Jęczmień';
-    case 'owies': return 'Owies';
-    default: return 'Wszystkie';
-  }
+  const all = getAllCropsList();
+  const found = all.find(c => c.key === filterKey);
+  if (found) return found.shortName;
+  if (filterKey === 'all') return 'Wszystkie';
+  return filterKey;
 }
 
 function getCropDefaultName(filterKey) {
-  switch(filterKey) {
-    case 'pszenica': return 'Pszenica';
-    case 'rzepak': return 'Rzepak';
-    case 'kukurydza': return 'Kukurydza';
-    case 'jeczmien': return 'Jęczmień';
-    case 'owies': return 'Owies';
-    default: return '';
-  }
+  const all = getAllCropsList();
+  const found = all.find(c => c.key === filterKey);
+  if (found) return found.shortName;
+  return '';
 }
 
 function renderFieldsStats() {
@@ -1502,20 +1691,9 @@ function renderFieldsStats() {
 
   const totalArea = fields.reduce((sum, f) => sum + (parseFloat(f.areaHa) || 0), 0).toFixed(2);
   const totalFields = fields.length;
-  
-  const wheatFields = fields.filter(f => (f.crop || '').toLowerCase().includes('pszenic')).length;
-  const rapeFields = fields.filter(f => (f.crop || '').toLowerCase().includes('rzepak')).length;
-  const cornFields = fields.filter(f => (f.crop || '').toLowerCase().includes('kukurydz')).length;
-  const barleyFields = fields.filter(f => {
-    const c = (f.crop || '').toLowerCase();
-    return c.includes('jęczmień') || c.includes('jeczmien');
-  }).length;
-  const oatFields = fields.filter(f => {
-    const c = (f.crop || '').toLowerCase();
-    return c.includes('owie') || c.includes('ows');
-  }).length;
+  const allCrops = getAllCropsList();
 
-  statsContainer.innerHTML = `
+  let html = `
     <div class="stat-card clickable ${currentFieldCropFilter === 'all' ? 'active' : ''}" data-crop-filter="all">
       <div class="stat-card-value" style="color:#eab308;">${totalArea} ha</div>
       <div class="stat-card-label">Łączny Areał</div>
@@ -1524,35 +1702,53 @@ function renderFieldsStats() {
       <div class="stat-card-value">${totalFields}</div>
       <div class="stat-card-label">Wszystkie Działki</div>
     </div>
-    <div class="stat-card clickable ${currentFieldCropFilter === 'pszenica' ? 'active' : ''}" data-crop-filter="pszenica">
-      <div class="stat-card-value" style="color:#38bdf8;">${wheatFields}</div>
-      <div class="stat-card-label">Pola z pszenicą</div>
-    </div>
-    <div class="stat-card clickable ${currentFieldCropFilter === 'rzepak' ? 'active' : ''}" data-crop-filter="rzepak">
-      <div class="stat-card-value" style="color:#22c55e;">${rapeFields}</div>
-      <div class="stat-card-label">Pola z rzepakiem</div>
-    </div>
-    <div class="stat-card clickable ${currentFieldCropFilter === 'kukurydza' ? 'active' : ''}" data-crop-filter="kukurydza">
-      <div class="stat-card-value" style="color:#f59e0b;">${cornFields}</div>
-      <div class="stat-card-label">Pola z kukurydzą</div>
-    </div>
-    <div class="stat-card clickable ${currentFieldCropFilter === 'jeczmien' ? 'active' : ''}" data-crop-filter="jeczmien">
-      <div class="stat-card-value" style="color:#fb923c;">${barleyFields}</div>
-      <div class="stat-card-label">Pola z jęczmieniem</div>
-    </div>
-    <div class="stat-card clickable ${currentFieldCropFilter === 'owies' ? 'active' : ''}" data-crop-filter="owies">
-      <div class="stat-card-value" style="color:#2dd4bf;">${oatFields}</div>
-      <div class="stat-card-label">Pola z owsem</div>
+  `;
+
+  allCrops.forEach(crop => {
+    const count = fields.filter(f => filterFieldByCrop(f, crop.key)).length;
+    html += `
+      <div class="stat-card clickable ${currentFieldCropFilter === crop.key ? 'active' : ''}" data-crop-filter="${crop.key}" style="position: relative;">
+        <button class="btn-delete-crop-tile" data-crop-key="${crop.key}" data-crop-name="${escapeHTML(crop.shortName)}" title="Usuń kafelek uprawy">🗑️</button>
+        <div class="stat-card-value" style="color:${crop.color};">${count}</div>
+        <div class="stat-card-label">${escapeHTML(crop.label)}</div>
+      </div>
+    `;
+  });
+
+  html += `
+    <div class="stat-card clickable stat-card-add-new" data-crop-action="add_crop_category">
+      <div class="stat-card-value" style="color:var(--primary);">➕</div>
+      <div class="stat-card-label" style="color:#ffffff; font-weight:700;">Dodaj Uprawę</div>
     </div>
   `;
 
+  statsContainer.innerHTML = html;
+
+  statsContainer.querySelectorAll('.btn-delete-crop-tile').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.cropKey;
+      const name = btn.dataset.cropName;
+      deleteCropCategory(key, name);
+    };
+  });
+
   statsContainer.querySelectorAll('.stat-card.clickable').forEach(card => {
-    card.onclick = () => {
+    card.onclick = (e) => {
+      if (e.target.closest('.btn-delete-crop-tile')) return;
+
+      const action = card.dataset.cropAction;
+      if (action === 'add_crop_category') {
+        openCropModal();
+        return;
+      }
+
       const filterKey = card.dataset.cropFilter;
       if (filterKey === 'all') {
         currentFieldCropFilter = 'all';
         renderFieldsStats();
         renderFieldsList();
+        renderCropFilterChips();
         switchFieldTab('fields-all');
       } else {
         currentFieldCropFilter = filterKey;
@@ -1563,19 +1759,35 @@ function renderFieldsStats() {
   });
 }
 
+function renderCropFilterChips() {
+  const chipsContainer = document.getElementById('field-crop-chips');
+  if (!chipsContainer) return;
+
+  const allCrops = getAllCropsList();
+  let html = `<button class="chip ${currentFieldCropFilter === 'all' ? 'active' : ''}" data-crop-filter="all" style="justify-content:center; text-align:center; width:100%; padding:8px 4px;">🌾 Wszystkie</button>`;
+
+  allCrops.forEach(crop => {
+    const isActive = currentFieldCropFilter === crop.key;
+    html += `<button class="chip ${isActive ? 'active' : ''}" data-crop-filter="${crop.key}" style="justify-content:center; text-align:center; width:100%; padding:8px 4px;">${crop.icon} ${escapeHTML(crop.shortName)}</button>`;
+  });
+
+  chipsContainer.innerHTML = html;
+
+  chipsContainer.querySelectorAll('.chip').forEach(chip => {
+    chip.onclick = () => {
+      currentFieldCropFilter = chip.dataset.cropFilter;
+      renderFieldsList();
+      renderCropFilterChips();
+    };
+  });
+}
+
 function renderFieldsList() {
   const container = document.getElementById('fields-container');
   if (!container) return;
 
-  // Synchronizacja aktywnych kafelków / chipsów upraw
-  const cropChips = document.querySelectorAll('#field-crop-chips .chip');
-  cropChips.forEach(chip => {
-    if (chip.dataset.cropFilter === currentFieldCropFilter) {
-      chip.classList.add('active');
-    } else {
-      chip.classList.remove('active');
-    }
-  });
+  // Renderowanie dynamicznych chipsów upraw
+  renderCropFilterChips();
 
   const query = (document.getElementById('field-search-input')?.value || '').toLowerCase();
   const filtered = fields.filter(f => {
@@ -1671,12 +1883,15 @@ function renderFieldsList() {
                 if (t.treatmentType === 'Insektycyd') badgeColor = '#ef4444';
                 return `
                   <div style="font-size:0.8rem; display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-                    <span>
+                    <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">
                       <strong style="color:${badgeColor};">[${escapeHTML(t.treatmentType)}]</strong> 
-                      <span style="color:#ffffff;">${escapeHTML(t.product)}</span>
+                      <span style="color:#ffffff; font-weight:600;">${escapeHTML(t.product)}</span>
                       ${t.dosePerHa ? `<small style="color:var(--text-secondary);">(${escapeHTML(t.dosePerHa)})</small>` : ''}
                     </span>
-                    <span style="font-size:0.75rem; color:var(--text-secondary);">${new Date(t.date).toLocaleDateString('pl-PL')}</span>
+                    <div style="display:flex; align-items:center; gap:6px; margin-left:8px;">
+                      <span style="font-size:0.75rem; color:var(--text-secondary); white-space:nowrap;">${new Date(t.date).toLocaleDateString('pl-PL')}</span>
+                      <button class="icon-btn btn-delete-treatment-quick" data-treatment-id="${t.id}" data-field-id="${field.id}" data-crop="${escapeHTML(field.crop || '')}" title="Usuń ten oprysk" style="padding:2px 4px; font-size:0.8rem; color:#ef4444; background:none; border:none; cursor:pointer;">🗑️</button>
+                    </div>
                   </div>
                 `;
               }).join('')}
@@ -1707,6 +1922,16 @@ function renderFieldsList() {
 
   const resetBtn = document.getElementById('btn-reset-crop-filter');
   if (resetBtn) resetBtn.onclick = () => setFieldCropFilter('all', false);
+
+  container.querySelectorAll('.btn-delete-treatment-quick').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const tId = btn.dataset.treatmentId;
+      const fId = btn.dataset.fieldId;
+      const crop = btn.dataset.crop;
+      deleteTreatmentQuick(tId, fId, crop);
+    };
+  });
 
   filtered.forEach(field => {
     const card = document.getElementById(`field-card-${field.id}`);
@@ -1862,7 +2087,12 @@ function openFieldModal(fieldData = null, prefillCrop = null) {
     document.getElementById('modal-field-crop').value = fieldData.crop || '';
     document.getElementById('modal-field-variety').value = fieldData.variety || '';
     document.getElementById('modal-field-sowing-date').value = fieldData.sowingDate || '';
-    document.getElementById('modal-field-sprays').value = fieldData.sprays || '';
+    
+    // Jeśli pole ma zabiegi w treatments, a fieldData.sprays jest puste lub niepełne, zbierz produkty
+    const fTreatments = treatments.filter(t => t.fieldId === fieldData.id);
+    const existingProducts = fTreatments.map(t => t.product).filter(Boolean);
+    const sprayText = fieldData.sprays || existingProducts.join(', ');
+    document.getElementById('modal-field-sprays').value = sprayText;
     document.getElementById('modal-field-notes').value = fieldData.notes || '';
   } else {
     const cropToUse = prefillCrop !== null ? prefillCrop : (currentFieldCropFilter !== 'all' ? getCropDefaultName(currentFieldCropFilter) : '');
@@ -1897,6 +2127,7 @@ function saveFieldFromModal() {
   const sowingDate = document.getElementById('modal-field-sowing-date').value;
   const sprays = document.getElementById('modal-field-sprays').value.trim();
   const notes = document.getElementById('modal-field-notes').value.trim();
+  const syncAllSprays = document.getElementById('modal-field-sync-sprays')?.checked;
 
   if (!name || areaHa <= 0) {
     showToast('Podaj nazwę pola i poprawną powierzchnię w ha!');
@@ -1909,24 +2140,80 @@ function saveFieldFromModal() {
       const oldSprays = fields[idx].sprays || '';
       fields[idx] = { ...fields[idx], name, areaHa, parcelNo, crop, variety, sowingDate, sprays, notes };
       
-      // Jeśli dopisano oprysk, dodaj go jako nowy wpis zabiegu
-      if (sprays && sprays !== oldSprays) {
-        treatments.push({
-          id: 'treatment_' + Date.now(),
-          fieldId: id,
-          fieldName: name,
-          date: sowingDate || new Date().toISOString().split('T')[0],
-          treatmentType: 'Oprysk',
-          product: sprays,
-          dosePerHa: '',
-          waterVolume: 200,
-          reasonTarget: 'Zabieg polowy',
-          notes: '',
-          createdAt: new Date().toISOString()
+      // Jeśli usunięto opryski (pole sprays zostało wyczyszczone)
+      if (!sprays && oldSprays) {
+        if (syncAllSprays && crop) {
+          const matchingFields = fields.filter(f => (f.crop || '').toLowerCase().trim() === crop.toLowerCase().trim());
+          matchingFields.forEach(f => {
+            f.sprays = '';
+          });
+          treatments = treatments.filter(t => {
+            const isMatchField = matchingFields.some(mf => mf.id === t.fieldId);
+            return !isMatchField;
+          });
+          saveTreatmentsData(true);
+          showToast(`Usunięto opryski ze wszystkich pól z uprawą: ${crop}!`);
+        } else {
+          treatments = treatments.filter(t => t.fieldId !== id);
+          saveTreatmentsData(true);
+          showToast('Usunięto opryski z tego pola!');
+        }
+      } else if (sprays && syncAllSprays && crop) {
+        // Zaktualizowano / dodano oprysk we wszystkich polach z tą uprawą
+        const matchingFields = fields.filter(f => (f.crop || '').toLowerCase().trim() === crop.toLowerCase().trim());
+        matchingFields.forEach(f => {
+          f.sprays = sprays;
         });
-        saveTreatmentsData();
+
+        matchingFields.forEach(f => {
+          const exists = treatments.some(t => t.fieldId === f.id && t.product.toLowerCase().trim() === sprays.toLowerCase().trim());
+          if (!exists) {
+            const oldT = treatments.find(t => t.fieldId === f.id && oldSprays && t.product.toLowerCase().trim() === oldSprays.toLowerCase().trim());
+            if (oldT) {
+              oldT.product = sprays;
+            } else {
+              treatments.push({
+                id: 'treatment_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                fieldId: f.id,
+                fieldName: f.name,
+                date: sowingDate || new Date().toISOString().split('T')[0],
+                treatmentType: 'Oprysk',
+                product: sprays,
+                dosePerHa: '',
+                waterVolume: 200,
+                reasonTarget: 'Zabieg polowy',
+                notes: '',
+                createdAt: new Date().toISOString()
+              });
+            }
+          }
+        });
+        saveTreatmentsData(true);
+        showToast(`Zaktualizowano opryski we wszystkich polach z uprawą: ${crop} (${matchingFields.length} działek)!`);
+      } else if (sprays && sprays !== oldSprays) {
+        const oldT = treatments.find(t => t.fieldId === id && oldSprays && t.product.toLowerCase().trim() === oldSprays.toLowerCase().trim());
+        if (oldT) {
+          oldT.product = sprays;
+        } else {
+          treatments.push({
+            id: 'treatment_' + Date.now(),
+            fieldId: id,
+            fieldName: name,
+            date: sowingDate || new Date().toISOString().split('T')[0],
+            treatmentType: 'Oprysk',
+            product: sprays,
+            dosePerHa: '',
+            waterVolume: 200,
+            reasonTarget: 'Zabieg polowy',
+            notes: '',
+            createdAt: new Date().toISOString()
+          });
+        }
+        saveTreatmentsData(true);
+        showToast('Zaktualizowano dane pola i opryski!');
+      } else {
+        showToast('Zaktualizowano dane pola!');
       }
-      showToast('Zaktualizowano dane pola!');
     }
   } else {
     const fieldId = 'field_' + Date.now();
@@ -1944,8 +2231,31 @@ function saveFieldFromModal() {
     };
     fields.push(newField);
 
-    // Jeśli podano oprysk przy tworzeniu pola, od razu zapisz go do zabiegów
-    if (sprays) {
+    // Jeśli podano oprysk i zaznaczono zapis we wszystkich polach z tą uprawą
+    if (sprays && syncAllSprays && crop) {
+      const matchingFields = fields.filter(f => (f.crop || '').toLowerCase().trim() === crop.toLowerCase().trim());
+      matchingFields.forEach(f => {
+        f.sprays = sprays;
+        const exists = treatments.some(t => t.fieldId === f.id && t.product.toLowerCase() === sprays.toLowerCase());
+        if (!exists) {
+          treatments.push({
+            id: 'treatment_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            fieldId: f.id,
+            fieldName: f.name,
+            date: sowingDate || new Date().toISOString().split('T')[0],
+            treatmentType: 'Oprysk',
+            product: sprays,
+            dosePerHa: '',
+            waterVolume: 200,
+            reasonTarget: 'Zabieg polowy',
+            notes: '',
+            createdAt: new Date().toISOString()
+          });
+        }
+      });
+      saveTreatmentsData(true);
+      showToast(`Dodano pole i zapisano opryski we wszystkich polach z uprawą: ${crop} (${matchingFields.length})!`);
+    } else if (sprays) {
       treatments.push({
         id: 'treatment_' + Date.now(),
         fieldId: fieldId,
@@ -1959,10 +2269,11 @@ function saveFieldFromModal() {
         notes: '',
         createdAt: new Date().toISOString()
       });
-      saveTreatmentsData();
+      saveTreatmentsData(true);
+      showToast('Dodano pole do rejestru!');
+    } else {
+      showToast('Dodano pole do rejestru!');
     }
-
-    showToast('Dodano pole do rejestru!');
   }
 
   saveFieldsData();
@@ -1970,6 +2281,44 @@ function saveFieldFromModal() {
   renderFieldsStats();
   renderFieldsList();
   switchFieldTab('fields-all');
+}
+
+function deleteTreatmentQuick(treatmentId, fieldId, crop) {
+  const targetT = treatments.find(t => t.id === treatmentId);
+  if (!targetT) return;
+
+  const matchingCropTreatments = treatments.filter(t => {
+    if (t.product.toLowerCase().trim() !== targetT.product.toLowerCase().trim()) return false;
+    const fld = fields.find(f => f.id === t.fieldId);
+    return fld && (fld.crop || '').toLowerCase().trim() === (crop || '').toLowerCase().trim();
+  });
+
+  if (matchingCropTreatments.length > 1) {
+    if (confirm(`Czy chcesz usunąć oprysk "${targetT.product}" ze WSZYSTKICH pól z uprawą "${crop}" (${matchingCropTreatments.length} działek)?\n\nKliknij [OK], aby usunąć z całej uprawy.\nKliknij [Anuluj], jeśli chcesz usunąć tylko z tego jednego pola.`)) {
+      const matchIds = new Set(matchingCropTreatments.map(t => t.id));
+      treatments = treatments.filter(t => !matchIds.has(t.id));
+      fields.filter(f => (f.crop || '').toLowerCase().trim() === (crop || '').toLowerCase().trim()).forEach(f => {
+        f.sprays = '';
+      });
+      saveTreatmentsData(true);
+      saveFieldsData(true);
+      renderFieldsList();
+      showToast(`🗑️ Usunięto oprysk "${targetT.product}" ze wszystkich pól z uprawą: ${crop}!`);
+      return;
+    }
+  }
+
+  if (confirm(`Czy na pewno chcesz usunąć oprysk "${targetT.product}" z tego pola?`)) {
+    treatments = treatments.filter(t => t.id !== treatmentId);
+    const fld = fields.find(f => f.id === fieldId);
+    if (fld) {
+      fld.sprays = '';
+      saveFieldsData(true);
+    }
+    saveTreatmentsData(true);
+    renderFieldsList();
+    showToast(`🗑️ Usunięto oprysk "${targetT.product}"!`);
+  }
 }
 
 function deleteField(id) {
@@ -1980,11 +2329,25 @@ function deleteField(id) {
   }
 }
 
+function updateTreatmentApplyAllLabel() {
+  const fieldSelect = document.getElementById('modal-treatment-field');
+  const labelEl = document.getElementById('modal-treatment-apply-all-label');
+  if (!fieldSelect || !labelEl) return;
+  const sId = fieldSelect.value;
+  const f = fields.find(fld => fld.id === sId);
+  if (f && f.crop) {
+    labelEl.innerHTML = `🔄 Zapisz ten oprysk we <strong>wszystkich polach z uprawą: ${escapeHTML(f.crop)}</strong>`;
+  } else {
+    labelEl.innerHTML = `🔄 Zapisz ten oprysk we <strong>wszystkich polach z tą uprawą</strong>`;
+  }
+}
+
 function openTreatmentModal(treatmentData = null, preselectedFieldId = null) {
   const modal = document.getElementById('treatment-modal');
   const title = document.getElementById('treatment-modal-title');
   const form = document.getElementById('treatment-form');
   const fieldSelect = document.getElementById('modal-treatment-field');
+  const applyAllCheckbox = document.getElementById('modal-treatment-apply-all');
   if (!modal || !form || !fieldSelect) return;
 
   if (fields.length === 0) {
@@ -1996,10 +2359,14 @@ function openTreatmentModal(treatmentData = null, preselectedFieldId = null) {
   form.reset();
 
   fieldSelect.innerHTML = fields.map(f => `
-    <option value="${f.id}" data-name="${escapeHTML(f.name)}">
+    <option value="${f.id}" data-name="${escapeHTML(f.name)}" data-crop="${escapeHTML(f.crop || '')}">
       🌾 ${escapeHTML(f.name)} (${parseFloat(f.areaHa).toFixed(2)} ha - ${escapeHTML(f.crop || 'Brak uprawy')})
     </option>
   `).join('');
+
+  fieldSelect.onchange = updateTreatmentApplyAllLabel;
+
+  if (applyAllCheckbox) applyAllCheckbox.checked = true;
 
   if (treatmentData && treatmentData.id) {
     title.textContent = 'Edytuj Zabieg / Oprysk';
@@ -2012,6 +2379,7 @@ function openTreatmentModal(treatmentData = null, preselectedFieldId = null) {
     document.getElementById('modal-treatment-water').value = treatmentData.waterVolume || '';
     document.getElementById('modal-treatment-reason').value = treatmentData.reasonTarget || '';
     document.getElementById('modal-treatment-notes').value = treatmentData.notes || '';
+    if (applyAllCheckbox) applyAllCheckbox.checked = false;
   } else {
     title.textContent = 'Zapisz Nowy Zabieg / Oprysk';
     document.getElementById('modal-treatment-id').value = '';
@@ -2019,6 +2387,7 @@ function openTreatmentModal(treatmentData = null, preselectedFieldId = null) {
     if (preselectedFieldId) fieldSelect.value = preselectedFieldId;
   }
 
+  updateTreatmentApplyAllLabel();
   modal.classList.add('active');
 }
 
@@ -2033,6 +2402,10 @@ function saveTreatmentFromModal() {
   const fieldId = fieldSelect.value;
   const selectedOption = fieldSelect.options[fieldSelect.selectedIndex];
   const fieldName = selectedOption ? selectedOption.dataset.name : 'Pole';
+  const applyAll = document.getElementById('modal-treatment-apply-all')?.checked;
+
+  const selectedField = fields.find(f => f.id === fieldId);
+  const targetCrop = selectedField ? (selectedField.crop || '').trim() : '';
 
   const date = document.getElementById('modal-treatment-date').value;
   const treatmentType = document.getElementById('modal-treatment-type').value;
@@ -2054,25 +2427,71 @@ function saveTreatmentFromModal() {
       showToast('Zaktualizowano zabieg!');
     }
   } else {
-    const newT = {
-      id: 'treatment_' + Date.now(),
-      fieldId,
-      fieldName,
-      date,
-      treatmentType,
-      product,
-      dosePerHa,
-      waterVolume,
-      reasonTarget,
-      notes,
-      createdAt: new Date().toISOString()
-    };
-    treatments.push(newT);
-    showToast('Zapisano zabieg w ewidencji!');
+    if (applyAll && targetCrop) {
+      // Zapisz oprysk we wszystkich polach z tą samą uprawą (np. tylko pszenica)
+      const matchingFields = fields.filter(f => (f.crop || '').toLowerCase().trim() === targetCrop.toLowerCase().trim());
+      
+      matchingFields.forEach(f => {
+        const newT = {
+          id: 'treatment_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          fieldId: f.id,
+          fieldName: f.name,
+          date,
+          treatmentType,
+          product,
+          dosePerHa,
+          waterVolume,
+          reasonTarget,
+          notes,
+          createdAt: new Date().toISOString()
+        };
+        treatments.push(newT);
+
+        // Zaktualizuj opis oprysków na kafelku pola
+        if (f.sprays) {
+          if (!f.sprays.toLowerCase().includes(product.toLowerCase())) {
+            f.sprays = `${f.sprays}, ${product}`;
+          }
+        } else {
+          f.sprays = product;
+        }
+      });
+      saveFieldsData(true);
+      showToast(`✅ Zapisano oprysk we wszystkich polach z uprawą: ${targetCrop} (${matchingFields.length} działek)!`);
+    } else {
+      const newT = {
+        id: 'treatment_' + Date.now(),
+        fieldId,
+        fieldName,
+        date,
+        treatmentType,
+        product,
+        dosePerHa,
+        waterVolume,
+        reasonTarget,
+        notes,
+        createdAt: new Date().toISOString()
+      };
+      treatments.push(newT);
+
+      if (selectedField) {
+        if (selectedField.sprays) {
+          if (!selectedField.sprays.toLowerCase().includes(product.toLowerCase())) {
+            selectedField.sprays = `${selectedField.sprays}, ${product}`;
+          }
+        } else {
+          selectedField.sprays = product;
+        }
+        saveFieldsData(true);
+      }
+
+      showToast('Zapisano zabieg w ewidencji!');
+    }
   }
 
   saveTreatmentsData();
   closeTreatmentModal();
+  renderFieldsList();
 }
 
 function deleteTreatment(id) {

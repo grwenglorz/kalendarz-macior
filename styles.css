@@ -732,6 +732,39 @@ input[type="number"] {
   background-color: rgba(22, 163, 74, 0.12) !important;
 }
 
+.stat-card.stat-card-add-new {
+  border: 2px dashed #16a34a !important;
+  background-color: rgba(22, 163, 74, 0.08) !important;
+}
+
+.stat-card.stat-card-add-new:hover {
+  background-color: rgba(22, 163, 74, 0.2) !important;
+  border-color: #22c55e !important;
+}
+
+.btn-delete-crop-tile {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 3px 5px;
+  line-height: 1;
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+  z-index: 10;
+}
+
+.btn-delete-crop-tile:hover {
+  opacity: 1 !important;
+  transform: scale(1.15);
+  background-color: rgba(239, 68, 68, 0.8) !important;
+  border-color: #ef4444 !important;
+}
+
 .stat-card-value {
   font-size: 1.8rem;
   font-weight: 800;
