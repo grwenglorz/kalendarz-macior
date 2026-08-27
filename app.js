@@ -850,14 +850,23 @@ function setupDataSyncListeners() {
 
   if (btnExportJson) {
     btnExportJson.addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sows, null, 2));
+      const fullFarmBackup = {
+        type: 'gr_wenglorz_full_backup',
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        familyCode: familyCode || '',
+        sows: sows,
+        fields: fields,
+        treatments: treatments
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullFarmBackup, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `baza_macior_${new Date().toISOString().split('T')[0]}.json`);
+      downloadAnchor.setAttribute("download", `baza_gr_wenglorz_${new Date().toISOString().split('T')[0]}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
-      showToast('Pobrano plik kopii zapasowej!');
+      showToast('💾 Pobrano pełną bazę gospodarstwa (maciory + pola)!');
     });
   }
 
@@ -871,11 +880,37 @@ function setupDataSyncListeners() {
       reader.onload = (event) => {
         try {
           const imported = JSON.parse(event.target.result);
-          if (Array.isArray(imported)) {
+          if (imported && typeof imported === 'object' && !Array.isArray(imported)) {
+            // Nowy pełny format gospodarstwa
+            if (Array.isArray(imported.sows)) {
+              sows = imported.sows.filter(s => s.id && !s.id.startsWith('sow_demo_'));
+              saveSowsData();
+              renderSowsList();
+              renderCalendarTimeline();
+              renderMenuStats();
+            }
+            if (Array.isArray(imported.fields)) {
+              fields = imported.fields;
+              saveFieldsData();
+              renderFieldsStats();
+              renderFieldsList();
+            }
+            if (Array.isArray(imported.treatments)) {
+              treatments = imported.treatments;
+              saveTreatmentsData();
+              renderTreatmentsList();
+            }
+            if (imported.familyCode) {
+              connectFamilyCloud(imported.familyCode, true);
+            }
+            showToast('✅ Pomyślnie wczytano całą bazę gospodarstwa!');
+          } else if (Array.isArray(imported)) {
+            // Starszy format z samą listą macior
             sows = imported.filter(s => s.id && !s.id.startsWith('sow_demo_'));
             saveSowsData();
             renderSowsList();
             renderCalendarTimeline();
+            renderMenuStats();
             showToast('Pomyślnie wczytano bazę macior!');
           } else {
             showToast('Nieprawidłowy format pliku kopii!');
@@ -891,7 +926,7 @@ function setupDataSyncListeners() {
   if (btnShareWhatsapp) {
     btnShareWhatsapp.addEventListener('click', () => {
       const pregnantSows = sows.filter(s => s.status === 'pregnant' || s.status === 'farrowing');
-      let text = `🐖 *Kalkulator Prośności Świń - Podsumowanie:*\n\n`;
+      let text = `🐖 *GR WENGLORZ - Podsumowanie Wyproszeń:*\n\n`;
       
       pregnantSows.forEach(s => {
         const covDate = new Date(s.coverageDate + 'T00:00:00');
