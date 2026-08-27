@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=46">
+  <link rel="stylesheet" href="styles.css?v=47">
 </head>
 <body>
 
@@ -37,6 +37,11 @@
           <button class="icon-btn btn-toggle-theme-global" title="Zmień motyw">☀️</button>
         </div>
       </header>
+
+      <!-- BADGE STATUSU CHMURY GOSPODARSTWA W LOBBY -->
+      <div id="cloud-badge-wrapper-lobby" style="padding: 6px 16px; text-align: center; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: block;">
+        <span id="cloud-status-badge-lobby" class="badge" style="font-size: 0.78rem;">⚪ Chmura nieaktywna (Wpisz Kod Rodziny)</span>
+      </div>
 
       <main class="main-content">
         <div style="font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 16px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -272,6 +277,11 @@
           <button class="icon-btn btn-toggle-theme-global" title="Zmień motyw">☀️</button>
         </div>
       </header>
+
+      <!-- BADGE STATUSU CHMURY GOSPODARSTWA W POLACH -->
+      <div id="cloud-badge-wrapper-fields" style="padding: 6px 16px; text-align: center; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: block;">
+        <span id="cloud-status-badge-fields" class="badge" style="font-size: 0.78rem;">⚪ Chmura nieaktywna (Wpisz Kod Rodziny)</span>
+      </div>
 
       <!-- GŁÓWNA ZAWARTOŚĆ PÓL -->
       <main class="main-content">
@@ -552,6 +562,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=46"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>

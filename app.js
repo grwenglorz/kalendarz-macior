@@ -20,6 +20,7 @@ function getOffsetDateString(daysOffset) {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadSowsData();
+  initFieldsModule();
   initFamilyCloudSync();
   setupNavigation();
   setupCalculatorListeners();
@@ -39,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderSowsList();
   renderCalendarTimeline();
-  initFieldsModule();
 });
 
 function registerServiceWorker() {
@@ -261,7 +261,7 @@ function loadSowsData() {
 function saveSowsData(skipCloudPush = false) {
   localStorage.setItem('prosnosc_swin_sows', JSON.stringify(sows));
   if (!skipCloudPush && familyCode) {
-    pushSowsToCloud();
+    pushFarmDataToCloud();
   }
 }
 
@@ -295,7 +295,7 @@ function initFamilyCloudSync() {
         showToast('Najpierw połącz się z Kodem Rodziny!');
         return;
       }
-      pullSowsFromCloud(true);
+      pullFarmDataFromCloud(true);
     });
   }
 }
@@ -306,54 +306,77 @@ function connectFamilyCloud(code, isUserInitiated = false) {
   updateCloudStatusBadge(true);
 
   if (isUserInitiated) {
-    showToast(`Połączono z chmurą rodziny: ${familyCode}`);
-    pushSowsToCloud();
+    showToast(`Połączono z chmurą gospodarstwa: ${familyCode}`);
+    pushFarmDataToCloud();
   }
 
-  pullSowsFromCloud();
+  pullFarmDataFromCloud();
   listenToCloudRealtime();
 }
 
 function updateCloudStatusBadge(isConnected) {
-  const badge = document.getElementById('cloud-status-badge');
-  const wrapper = document.getElementById('cloud-badge-wrapper');
-  if (!badge) return;
+  const badges = [
+    document.getElementById('cloud-status-badge'),
+    document.getElementById('cloud-status-badge-fields'),
+    document.getElementById('cloud-status-badge-lobby')
+  ];
 
-  if (wrapper) wrapper.style.display = 'block';
-
-  if (isConnected) {
-    badge.innerHTML = `🟢 Chmura aktywna na żywo: <strong>${familyCode}</strong>`;
-    badge.style.display = 'inline-block';
-    badge.style.background = 'var(--accent-green-light)';
-    badge.style.color = 'var(--accent-green)';
-    badge.style.borderColor = 'rgba(42, 157, 143, 0.4)';
-  } else {
-    badge.innerHTML = `⚪ Chmura nieaktywna (Wpisz Kod Rodziny)`;
-    badge.style.display = 'inline-block';
-    badge.style.background = 'var(--bg-primary)';
-    badge.style.color = 'var(--text-secondary)';
-    badge.style.borderColor = 'var(--border-color)';
-  }
+  badges.forEach(badge => {
+    if (!badge) return;
+    if (isConnected) {
+      badge.innerHTML = `🟢 Chmura aktywna na żywo: <strong>${familyCode}</strong>`;
+      badge.style.display = 'inline-block';
+      badge.style.background = 'var(--accent-green-light)';
+      badge.style.color = 'var(--accent-green)';
+      badge.style.borderColor = 'rgba(42, 157, 143, 0.4)';
+      badge.style.cursor = 'pointer';
+      badge.title = 'Chmura zsynchronizowana. Kliknij, aby sprawdzić aktualizacje.';
+      badge.onclick = () => pullFarmDataFromCloud(true);
+    } else {
+      badge.innerHTML = `⚪ Chmura nieaktywna (Kliknij, aby połączyć)`;
+      badge.style.display = 'inline-block';
+      badge.style.background = 'var(--bg-primary)';
+      badge.style.color = 'var(--text-secondary)';
+      badge.style.borderColor = 'var(--border-color)';
+      badge.style.cursor = 'pointer';
+      badge.title = 'Kliknij, aby wpisać wspólny Kod Gospodarstwa';
+      badge.onclick = () => {
+        const code = prompt('Wpisz wspólny Kod Gospodarstwa (taki sam na komputerze i telefonie, np. WENGLORZ):', familyCode || '');
+        if (code && code.trim()) {
+          connectFamilyCloud(code.trim().toUpperCase(), true);
+        }
+      };
+    }
+  });
 }
 
-async function pushSowsToCloud() {
+async function pushFarmDataToCloud() {
   if (!familyCode) return;
   try {
     const cleanTopic = familyCode.toLowerCase().replace(/[^a-z0-9]/g, '_');
     const url = `https://ntfy.sh/prosnosc_swin_${cleanTopic}`;
 
+    const payload = {
+      type: 'gr_wenglorz_farm_sync',
+      version: 2,
+      timestamp: Date.now(),
+      sows: sows,
+      fields: fields,
+      treatments: treatments
+    };
+
     await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sows)
+      body: JSON.stringify(payload)
     });
-    console.log('Wysłano dane do chmury.');
+    console.log('Wysłano pełne dane gospodarstwa (maciory + pola + opryski) do chmury.');
   } catch (err) {
     console.log('Błąd wysyłania do chmury:', err);
   }
 }
 
-async function pullSowsFromCloud(showToastOnSuccess = false) {
+async function pullFarmDataFromCloud(showToastOnSuccess = false) {
   if (!familyCode) return;
   try {
     const cleanTopic = familyCode.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -367,21 +390,12 @@ async function pullSowsFromCloud(showToastOnSuccess = false) {
         const lastLine = lines[lines.length - 1];
         const eventObj = JSON.parse(lastLine);
         if (eventObj && eventObj.message) {
-          const remoteSows = JSON.parse(eventObj.message);
-          if (Array.isArray(remoteSows)) {
-            const cleanRemote = remoteSows.filter(s => s.id && !s.id.startsWith('sow_demo_'));
-            if (JSON.stringify(cleanRemote) !== JSON.stringify(sows)) {
-              sows = cleanRemote;
-              saveSowsData(true);
-              renderSowsList();
-              renderCalendarTimeline();
-              renderMenuStats();
-              if (showToastOnSuccess) {
-                showToast('☁️ Pobrano aktualne dane z chmury!');
-              }
-            } else if (showToastOnSuccess) {
-              showToast('✅ Wszystkie dane są aktualne!');
-            }
+          const remoteData = JSON.parse(eventObj.message);
+          const changed = applyRemoteSyncData(remoteData);
+          if (changed && showToastOnSuccess) {
+            showToast('☁️ Pobrano aktualne dane gospodarstwa z chmury!');
+          } else if (showToastOnSuccess) {
+            showToast('✅ Wszystkie dane są aktualne!');
           }
         }
       }
@@ -406,24 +420,66 @@ function listenToCloudRealtime() {
       try {
         const data = JSON.parse(event.data);
         if (data && data.message) {
-          const remoteSows = JSON.parse(data.message);
-          if (Array.isArray(remoteSows)) {
-            const cleanRemote = remoteSows.filter(s => s.id && !s.id.startsWith('sow_demo_'));
-            if (JSON.stringify(cleanRemote) !== JSON.stringify(sows)) {
-              sows = cleanRemote;
-              saveSowsData(true);
-              renderSowsList();
-              renderCalendarTimeline();
-              renderMenuStats();
-              showToast('⚡ Zsynchronizowano bazę stada z drugiego urządzenia!');
-            }
-          }
+          const remoteData = JSON.parse(data.message);
+          applyRemoteSyncData(remoteData, true);
         }
       } catch (e) {}
     };
   } catch (err) {
     console.log('Błąd SSE:', err);
   }
+}
+
+function applyRemoteSyncData(dataObj, showToastNotice = false) {
+  let changed = false;
+
+  if (dataObj && typeof dataObj === 'object' && !Array.isArray(dataObj)) {
+    // Nowy format gospodarstwa
+    if (Array.isArray(dataObj.sows)) {
+      const cleanRemoteSows = dataObj.sows.filter(s => s.id && !s.id.startsWith('sow_demo_'));
+      if (JSON.stringify(cleanRemoteSows) !== JSON.stringify(sows)) {
+        sows = cleanRemoteSows;
+        saveSowsData(true);
+        renderSowsList();
+        renderCalendarTimeline();
+        renderMenuStats();
+        changed = true;
+      }
+    }
+    if (Array.isArray(dataObj.fields)) {
+      if (JSON.stringify(dataObj.fields) !== JSON.stringify(fields)) {
+        fields = dataObj.fields;
+        saveFieldsData(true);
+        renderFieldsStats();
+        renderFieldsList();
+        changed = true;
+      }
+    }
+    if (Array.isArray(dataObj.treatments)) {
+      if (JSON.stringify(dataObj.treatments) !== JSON.stringify(treatments)) {
+        treatments = dataObj.treatments;
+        saveTreatmentsData(true);
+        renderTreatmentsList();
+        changed = true;
+      }
+    }
+  } else if (Array.isArray(dataObj)) {
+    // Starszy format: sama tablica macior
+    const cleanRemote = dataObj.filter(s => s.id && !s.id.startsWith('sow_demo_'));
+    if (JSON.stringify(cleanRemote) !== JSON.stringify(sows)) {
+      sows = cleanRemote;
+      saveSowsData(true);
+      renderSowsList();
+      renderCalendarTimeline();
+      renderMenuStats();
+      changed = true;
+    }
+  }
+
+  if (changed && showToastNotice) {
+    showToast('⚡ Zsynchronizowano dane gospodarstwa z drugim urządzeniem!');
+  }
+  return changed;
 }
 
 function renderSowsList() {
@@ -1172,11 +1228,14 @@ function loadFieldsData() {
   }
 }
 
-function saveFieldsData() {
+function saveFieldsData(skipCloudPush = false) {
   localStorage.setItem('prosnosc_swin_fields', JSON.stringify(fields));
   renderFieldsStats();
   renderFieldsList();
   renderTreatmentsList();
+  if (!skipCloudPush && familyCode) {
+    pushFarmDataToCloud();
+  }
 }
 
 function loadTreatmentsData() {
@@ -1192,11 +1251,14 @@ function loadTreatmentsData() {
   }
 }
 
-function saveTreatmentsData() {
+function saveTreatmentsData(skipCloudPush = false) {
   localStorage.setItem('prosnosc_swin_treatments', JSON.stringify(treatments));
   renderFieldsStats();
   renderFieldsList();
   renderTreatmentsList();
+  if (!skipCloudPush && familyCode) {
+    pushFarmDataToCloud();
+  }
 }
 
 function switchFieldTab(targetTab) {
