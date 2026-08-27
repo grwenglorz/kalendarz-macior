@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=56">
+  <link rel="stylesheet" href="styles.css?v=62">
 </head>
 <body>
 
@@ -335,8 +335,11 @@
 
         <!-- ZAKŁADKA 2: WSZYSTKIE POLA -->
         <section id="tab-fields-all" class="tab-pane">
-          <div style="margin-bottom: 12px;">
-            <h2 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">🌾 Wszystkie Pola i Działki</h2>
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: nowrap;">
+            <h2 style="font-size: 1.05rem; font-weight: 700; color: #ffffff; margin: 0; white-space: nowrap; flex-shrink: 0;">🌾 Wszystkie Pola i Działki</h2>
+            <button class="btn btn-primary" id="btn-add-field-all" style="width: auto !important; flex-shrink: 0 !important; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 3px; border-radius: 6px; box-shadow: none; white-space: nowrap !important; cursor: pointer;">
+              <span>➕ Dodaj Działkę</span>
+            </button>
           </div>
 
           <!-- WYSZUKIWARKA -->
@@ -433,8 +436,11 @@
         <input type="hidden" id="modal-field-id">
 
         <div class="form-group">
-          <label for="modal-field-name">Nazwa pola (własna):*</label>
-          <input type="text" id="modal-field-name" class="form-control" placeholder="np. Za lasem, Koło drogi, Kawałek pod strugą" required>
+          <label for="modal-field-name">Wybierz pole (lub wpisz nowe):*</label>
+          <input type="text" id="modal-field-name" class="form-control" list="existing-fields-suggestions" placeholder="Wybierz z listy zapisanych pól lub wpisz nazwę..." required autocomplete="off">
+          <datalist id="existing-fields-suggestions">
+            <!-- wypełniane dynamicznie przez app.js -->
+          </datalist>
         </div>
 
         <div class="form-row">
@@ -476,20 +482,23 @@
           <input type="date" id="modal-field-sowing-date" class="form-control">
         </div>
 
-        <div class="form-group" style="margin-bottom: 6px;">
-          <label for="modal-field-sprays">Opryski / Zabiegi:</label>
-          <input type="text" id="modal-field-sprays" class="form-control" placeholder="np. Input Plex 1.0 l/ha, Boxer 2.0 l/ha, Mocznik 5 kg...">
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
-          <input type="checkbox" id="modal-field-sync-sprays" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
-          <label for="modal-field-sync-sprays" style="font-size: 0.82rem; color: #ffffff; cursor: pointer; user-select: none;">
-            🔄 Zapisz te opryski we <strong>wszystkich polach z tą uprawą</strong>
-          </label>
-        </div>
+        <!-- DODATKOWA SEKCJA: OPRYSKI I UWAGI (UKRYWANA TYLKO PRZY SZYBKIM DODAWANIU DZIAŁKI) -->
+        <div id="field-modal-extra-section">
+          <div class="form-group" style="margin-bottom: 6px;">
+            <label for="modal-field-sprays">Opryski / Zabiegi:</label>
+            <input type="text" id="modal-field-sprays" class="form-control" placeholder="np. Input Plex 1.0 l/ha, Boxer 2.0 l/ha, Mocznik 5 kg...">
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+            <input type="checkbox" id="modal-field-sync-sprays" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
+            <label for="modal-field-sync-sprays" style="font-size: 0.82rem; color: #ffffff; cursor: pointer; user-select: none;">
+              🔄 Zapisz te opryski we <strong>wszystkich polach z tą uprawą</strong>
+            </label>
+          </div>
 
-        <div class="form-group">
-          <label for="modal-field-notes">Uwagi (klasa ziemi, przedplon itp.):</label>
-          <textarea id="modal-field-notes" class="form-control" rows="2" placeholder="np. Klasa IIIb, przedplon: rzepak"></textarea>
+          <div class="form-group">
+            <label for="modal-field-notes">Uwagi (klasa ziemi, przedplon itp.):</label>
+            <textarea id="modal-field-notes" class="form-control" rows="2" placeholder="np. Klasa IIIb, przedplon: rzepak"></textarea>
+          </div>
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -617,6 +626,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=56"></script>
+  <script src="app.js?v=62"></script>
 </body>
 </html>

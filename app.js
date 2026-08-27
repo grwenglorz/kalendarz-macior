@@ -1490,11 +1490,18 @@ function setupFieldsModuleListeners() {
   // Przyciski dodawania
   const btnAddField = document.getElementById('btn-add-field-main');
   const btnAddFieldMenu = document.getElementById('btn-add-field-menu');
+  const btnAddFieldAll = document.getElementById('btn-add-field-all');
   const btnAddTreatmentMain = document.getElementById('btn-add-treatment-main');
   const btnAddTreatmentQuick = document.getElementById('btn-add-treatment-quick');
 
   if (btnAddField) btnAddField.addEventListener('click', () => openFieldModal());
   if (btnAddFieldMenu) btnAddFieldMenu.addEventListener('click', () => openFieldModal());
+  if (btnAddFieldAll) {
+    btnAddFieldAll.addEventListener('click', () => {
+      const defaultCrop = currentFieldCropFilter !== 'all' ? getCropDefaultName(currentFieldCropFilter) : '';
+      openFieldModal(null, defaultCrop, true);
+    });
+  }
   if (btnAddTreatmentMain) btnAddTreatmentMain.addEventListener('click', () => openTreatmentModal());
   if (btnAddTreatmentQuick) btnAddTreatmentQuick.addEventListener('click', () => openTreatmentModal());
 
@@ -1512,6 +1519,43 @@ function setupFieldsModuleListeners() {
   // Formularz Pola
   const fieldForm = document.getElementById('field-form');
   const btnCloseField = document.getElementById('btn-close-field-modal');
+  const fieldNameInput = document.getElementById('modal-field-name');
+
+  if (fieldNameInput) {
+    const handleFieldSelection = () => {
+      const val = fieldNameInput.value.trim().toLowerCase();
+      if (!val) return;
+      const found = fields.find(f => f.name.toLowerCase() === val);
+      if (found) {
+        document.getElementById('modal-field-id').value = found.id;
+        if (found.areaHa && (!document.getElementById('modal-field-area').value || parseFloat(document.getElementById('modal-field-area').value) === 0)) {
+          document.getElementById('modal-field-area').value = found.areaHa;
+        }
+        if (found.parcelNo && !document.getElementById('modal-field-parcel').value) {
+          document.getElementById('modal-field-parcel').value = found.parcelNo;
+        }
+        if (found.variety && !document.getElementById('modal-field-variety').value) {
+          document.getElementById('modal-field-variety').value = found.variety;
+        }
+        if (found.sowingDate && !document.getElementById('modal-field-sowing-date').value) {
+          document.getElementById('modal-field-sowing-date').value = found.sowingDate;
+        }
+        if (found.notes && document.getElementById('modal-field-notes') && !document.getElementById('modal-field-notes').value) {
+          document.getElementById('modal-field-notes').value = found.notes;
+        }
+        const fTreatments = treatments.filter(t => t.fieldId === found.id);
+        const existingProducts = fTreatments.map(t => t.product).filter(Boolean);
+        const sprayText = found.sprays || existingProducts.join(', ');
+        const spraysInput = document.getElementById('modal-field-sprays');
+        if (spraysInput && !spraysInput.value) {
+          spraysInput.value = sprayText;
+        }
+      }
+    };
+    fieldNameInput.addEventListener('input', handleFieldSelection);
+    fieldNameInput.addEventListener('change', handleFieldSelection);
+  }
+
   if (fieldForm) {
     fieldForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -2070,13 +2114,18 @@ function renderTreatmentsList() {
   });
 }
 
-function openFieldModal(fieldData = null, prefillCrop = null) {
+function openFieldModal(fieldData = null, prefillCrop = null, hideExtras = false) {
   const modal = document.getElementById('field-modal');
   const title = document.getElementById('field-modal-title');
   const form = document.getElementById('field-form');
+  const extraSec = document.getElementById('field-modal-extra-section');
   if (!modal || !form) return;
 
   form.reset();
+
+  if (extraSec) {
+    extraSec.style.display = hideExtras ? 'none' : 'block';
+  }
 
   if (fieldData && fieldData.id) {
     title.textContent = 'Edytuj Pole / Działkę';
@@ -2088,12 +2137,14 @@ function openFieldModal(fieldData = null, prefillCrop = null) {
     document.getElementById('modal-field-variety').value = fieldData.variety || '';
     document.getElementById('modal-field-sowing-date').value = fieldData.sowingDate || '';
     
-    // Jeśli pole ma zabiegi w treatments, a fieldData.sprays jest puste lub niepełne, zbierz produkty
+    // Pobierz istniejące zabiegi do pola oprysków
     const fTreatments = treatments.filter(t => t.fieldId === fieldData.id);
     const existingProducts = fTreatments.map(t => t.product).filter(Boolean);
     const sprayText = fieldData.sprays || existingProducts.join(', ');
-    document.getElementById('modal-field-sprays').value = sprayText;
-    document.getElementById('modal-field-notes').value = fieldData.notes || '';
+    const spraysInput = document.getElementById('modal-field-sprays');
+    const notesInput = document.getElementById('modal-field-notes');
+    if (spraysInput) spraysInput.value = sprayText;
+    if (notesInput) notesInput.value = fieldData.notes || '';
   } else {
     const cropToUse = prefillCrop !== null ? prefillCrop : (currentFieldCropFilter !== 'all' ? getCropDefaultName(currentFieldCropFilter) : '');
     title.textContent = cropToUse 
@@ -2101,8 +2152,20 @@ function openFieldModal(fieldData = null, prefillCrop = null) {
       : 'Dodaj Nowe Pole / Działkę';
     document.getElementById('modal-field-id').value = '';
     document.getElementById('modal-field-sowing-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('modal-field-sprays').value = '';
     document.getElementById('modal-field-crop').value = cropToUse || '';
+    document.getElementById('modal-field-variety').value = '';
+    const spraysInput = document.getElementById('modal-field-sprays');
+    const notesInput = document.getElementById('modal-field-notes');
+    if (spraysInput) spraysInput.value = '';
+    if (notesInput) notesInput.value = '';
+  }
+
+  // Wypełnij listę istniejących pól do szybkiego wyboru
+  const datalist = document.getElementById('existing-fields-suggestions');
+  if (datalist) {
+    datalist.innerHTML = fields.map(f => `
+      <option value="${escapeHTML(f.name)}" label="${parseFloat(f.areaHa).toFixed(2)} ha ${f.crop ? `(${escapeHTML(f.crop)})` : ''}">
+    `).join('');
   }
 
   // Zaktualizuj listę podpowiedzi odmian dla aktualnej uprawy
@@ -2125,8 +2188,8 @@ function saveFieldFromModal() {
   const crop = document.getElementById('modal-field-crop').value.trim();
   const variety = document.getElementById('modal-field-variety').value.trim();
   const sowingDate = document.getElementById('modal-field-sowing-date').value;
-  const sprays = document.getElementById('modal-field-sprays').value.trim();
-  const notes = document.getElementById('modal-field-notes').value.trim();
+  const sprays = (document.getElementById('modal-field-sprays')?.value || '').trim();
+  const notes = (document.getElementById('modal-field-notes')?.value || '').trim();
   const syncAllSprays = document.getElementById('modal-field-sync-sprays')?.checked;
 
   if (!name || areaHa <= 0) {
@@ -2138,19 +2201,24 @@ function saveFieldFromModal() {
     const idx = fields.findIndex(f => f.id === id);
     if (idx !== -1) {
       const oldSprays = fields[idx].sprays || '';
-      fields[idx] = { ...fields[idx], name, areaHa, parcelNo, crop, variety, sowingDate, sprays, notes };
-      
-      // Jeśli usunięto opryski (pole sprays zostało wyczyszczone)
+      fields[idx] = { 
+        ...fields[idx], 
+        name, 
+        areaHa, 
+        parcelNo, 
+        crop, 
+        variety, 
+        sowingDate,
+        sprays,
+        notes
+      };
+
+      // Jeśli wyczyszczono opryski
       if (!sprays && oldSprays) {
         if (syncAllSprays && crop) {
           const matchingFields = fields.filter(f => (f.crop || '').toLowerCase().trim() === crop.toLowerCase().trim());
-          matchingFields.forEach(f => {
-            f.sprays = '';
-          });
-          treatments = treatments.filter(t => {
-            const isMatchField = matchingFields.some(mf => mf.id === t.fieldId);
-            return !isMatchField;
-          });
+          matchingFields.forEach(f => { f.sprays = ''; });
+          treatments = treatments.filter(t => !matchingFields.some(mf => mf.id === t.fieldId));
           saveTreatmentsData(true);
           showToast(`Usunięto opryski ze wszystkich pól z uprawą: ${crop}!`);
         } else {
@@ -2159,12 +2227,8 @@ function saveFieldFromModal() {
           showToast('Usunięto opryski z tego pola!');
         }
       } else if (sprays && syncAllSprays && crop) {
-        // Zaktualizowano / dodano oprysk we wszystkich polach z tą uprawą
         const matchingFields = fields.filter(f => (f.crop || '').toLowerCase().trim() === crop.toLowerCase().trim());
-        matchingFields.forEach(f => {
-          f.sprays = sprays;
-        });
-
+        matchingFields.forEach(f => { f.sprays = sprays; });
         matchingFields.forEach(f => {
           const exists = treatments.some(t => t.fieldId === f.id && t.product.toLowerCase().trim() === sprays.toLowerCase().trim());
           if (!exists) {
@@ -2189,7 +2253,7 @@ function saveFieldFromModal() {
           }
         });
         saveTreatmentsData(true);
-        showToast(`Zaktualizowano opryski we wszystkich polach z uprawą: ${crop} (${matchingFields.length} działek)!`);
+        showToast(`Zaktualizowano opryski we wszystkich polach z uprawą: ${crop}!`);
       } else if (sprays && sprays !== oldSprays) {
         const oldT = treatments.find(t => t.fieldId === id && oldSprays && t.product.toLowerCase().trim() === oldSprays.toLowerCase().trim());
         if (oldT) {
@@ -2231,7 +2295,6 @@ function saveFieldFromModal() {
     };
     fields.push(newField);
 
-    // Jeśli podano oprysk i zaznaczono zapis we wszystkich polach z tą uprawą
     if (sprays && syncAllSprays && crop) {
       const matchingFields = fields.filter(f => (f.crop || '').toLowerCase().trim() === crop.toLowerCase().trim());
       matchingFields.forEach(f => {
@@ -2254,7 +2317,7 @@ function saveFieldFromModal() {
         }
       });
       saveTreatmentsData(true);
-      showToast(`Dodano pole i zapisano opryski we wszystkich polach z uprawą: ${crop} (${matchingFields.length})!`);
+      showToast(`Dodano pole i zapisano opryski we wszystkich polach z uprawą: ${crop}!`);
     } else if (sprays) {
       treatments.push({
         id: 'treatment_' + Date.now(),
