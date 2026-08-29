@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=62">
+  <link rel="stylesheet" href="styles.css?v=65">
 </head>
 <body>
 
@@ -317,6 +317,20 @@
         <span id="cloud-status-badge-fields" class="badge" style="font-size: 0.78rem;">⚪ Chmura nieaktywna (Wpisz Kod Rodziny)</span>
       </div>
 
+      <!-- PASEK WYBORU SEZONU / ROKU GOSPODARSTWA -->
+      <div class="season-selector-bar" style="display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 8px 16px; border-bottom: 1px solid var(--border-color);">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 0.88rem; font-weight: 700; color: #38bdf8;">📅 Rok / Sezon:</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button type="button" class="icon-btn" id="btn-prev-season-year" title="Poprzedni rok" style="padding: 4px 8px; font-size: 0.75rem; background: #1e293b; color: #ffffff; border: 1px solid #334155; border-radius: 6px; cursor: pointer;">◀</button>
+          <select id="select-season-year" class="form-control" style="width: auto; padding: 4px 10px; font-size: 0.85rem; font-weight: 800; color: #22c55e; background: #1e293b; border: 1px solid #22c55e; border-radius: 6px; cursor: pointer;">
+            <!-- wypełniane dynamicznie w app.js -->
+          </select>
+          <button type="button" class="icon-btn" id="btn-next-season-year" title="Następny rok" style="padding: 4px 8px; font-size: 0.75rem; background: #1e293b; color: #ffffff; border: 1px solid #334155; border-radius: 6px; cursor: pointer;">▶</button>
+        </div>
+      </div>
+
       <!-- GŁÓWNA ZAWARTOŚĆ PÓL -->
       <main class="main-content">
 
@@ -484,10 +498,28 @@
 
         <!-- DODATKOWA SEKCJA: OPRYSKI I UWAGI (UKRYWANA TYLKO PRZY SZYBKIM DODAWANIU DZIAŁKI) -->
         <div id="field-modal-extra-section">
-          <div class="form-group" style="margin-bottom: 6px;">
-            <label for="modal-field-sprays">Opryski / Zabiegi:</label>
-            <input type="text" id="modal-field-sprays" class="form-control" placeholder="np. Input Plex 1.0 l/ha, Boxer 2.0 l/ha, Mocznik 5 kg...">
+          <div class="form-row">
+            <div class="form-group" style="flex: 1;">
+              <label for="modal-field-treatment-type">Rodzaj zabiegu:</label>
+              <select id="modal-field-treatment-type" class="form-control">
+                <option value="Herbicyd">🌿 Herbicyd (odchwaszczanie)</option>
+                <option value="Fungicyd">🍄 Fungicyd (grzybobójczy T1/T2/T3)</option>
+                <option value="Insektycyd">🐛 Insektycyd (robak)</option>
+                <option value="Regulator">📏 Regulator wzrostu (skracanie)</option>
+                <option value="Nawóz dolistny">🧪 Nawóz dolistny / Odżywka</option>
+                <option value="Nawóz doglebowy">🌱 Nawożenie doglebowe (NPK/Saletra)</option>
+                <option value="Inny">📋 Inny zabieg</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1.5;">
+              <label for="modal-field-sprays">Oprysk / Preparat:</label>
+              <input type="text" id="modal-field-sprays" class="form-control" list="spray-suggestions" placeholder="Wybierz z listy lub wpisz..." autocomplete="off">
+            </div>
           </div>
+          <datalist id="spray-suggestions">
+            <!-- wypełniane dynamicznie przez app.js -->
+          </datalist>
+
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
             <input type="checkbox" id="modal-field-sync-sprays" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
             <label for="modal-field-sync-sprays" style="font-size: 0.82rem; color: #ffffff; cursor: pointer; user-select: none;">
@@ -549,8 +581,8 @@
         </div>
 
         <div class="form-group">
-          <label for="modal-treatment-product">Zastosowany środek / preparat:*</label>
-          <input type="text" id="modal-treatment-product" class="form-control" placeholder="np. Input Plex 1.0 l/ha + Mocznik 5 kg/ha" required>
+          <label for="modal-treatment-product">Zastosowany środek / preparat (wybierz lub wpisz):*</label>
+          <input type="text" id="modal-treatment-product" class="form-control" list="spray-suggestions" placeholder="Wybierz z listy lub wpisz (np. Input Plex, Boxer, Mocznik)..." required autocomplete="off">
         </div>
 
         <div class="form-row">
@@ -626,6 +658,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=62"></script>
+  <script src="app.js?v=65"></script>
 </body>
 </html>

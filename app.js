@@ -1287,15 +1287,71 @@ function checkUpcomingFarrowingsAndNotify() {
 }
 
 /* ==========================================================================
-   MODUŁ: POLA I UPRAWY (DZIAŁKI, ZASIEWY, EWIDENCJA OPRYSKÓW)
+   MODUŁ: POLA I UPRAWY (DZIAŁKI, ZASIEWY, EWIDENCJA OPRYSKÓW, SEZONY)
    ========================================================================== */
+
+let currentSeasonYear = localStorage.getItem('prosnosc_swin_season_year') 
+  ? (localStorage.getItem('prosnosc_swin_season_year') === 'all' ? 'all' : parseInt(localStorage.getItem('prosnosc_swin_season_year'))) 
+  : new Date().getFullYear();
 
 function initFieldsModule() {
   loadCustomCrops();
   loadDeletedBaseCrops();
   loadFieldsData();
   loadTreatmentsData();
+  renderSeasonYearSelector();
   setupFieldsModuleListeners();
+}
+
+function getAvailableSeasonYears() {
+  const years = new Set();
+  const nowYr = new Date().getFullYear();
+  for (let y = nowYr - 3; y <= nowYr + 2; y++) {
+    years.add(y);
+  }
+  treatments.forEach(t => {
+    if (t.date) {
+      const yr = new Date(t.date + 'T00:00:00').getFullYear();
+      if (!isNaN(yr)) years.add(yr);
+    }
+  });
+  fields.forEach(f => {
+    if (f.sowingDate) {
+      const yr = new Date(f.sowingDate + 'T00:00:00').getFullYear();
+      if (!isNaN(yr)) years.add(yr);
+    }
+  });
+  return Array.from(years).sort((a, b) => b - a);
+}
+
+function renderSeasonYearSelector() {
+  const select = document.getElementById('select-season-year');
+  if (!select) return;
+
+  const availableYears = getAvailableSeasonYears();
+  let optionsHtml = `<option value="all" ${currentSeasonYear === 'all' ? 'selected' : ''}>🌟 Wszystkie Sezony (Całość)</option>`;
+  availableYears.forEach(yr => {
+    optionsHtml += `<option value="${yr}" ${currentSeasonYear === yr ? 'selected' : ''}>Sezon ${yr}</option>`;
+  });
+  select.innerHTML = optionsHtml;
+}
+
+function setSeasonYear(year) {
+  currentSeasonYear = year === 'all' ? 'all' : parseInt(year);
+  localStorage.setItem('prosnosc_swin_season_year', currentSeasonYear);
+  renderSeasonYearSelector();
+  renderFieldsStats();
+  renderFieldsList();
+  renderTreatmentsList();
+  showToast(currentSeasonYear === 'all' ? '📅 Wyświetlam całą historię (wszystkie sezony)' : `📅 Przełączono na Sezon: ${currentSeasonYear}`);
+}
+
+function stepSeasonYear(delta) {
+  if (currentSeasonYear === 'all') {
+    currentSeasonYear = new Date().getFullYear();
+  }
+  let nextYr = currentSeasonYear + delta;
+  setSeasonYear(nextYr);
 }
 
 function loadCustomCrops() {
@@ -1431,6 +1487,7 @@ function loadFieldsData() {
 
 function saveFieldsData(skipCloudPush = false) {
   localStorage.setItem('prosnosc_swin_fields', JSON.stringify(fields));
+  renderSeasonYearSelector();
   renderFieldsStats();
   renderFieldsList();
   renderTreatmentsList();
@@ -1454,6 +1511,7 @@ function loadTreatmentsData() {
 
 function saveTreatmentsData(skipCloudPush = false) {
   localStorage.setItem('prosnosc_swin_treatments', JSON.stringify(treatments));
+  renderSeasonYearSelector();
   renderFieldsStats();
   renderFieldsList();
   renderTreatmentsList();
@@ -1493,6 +1551,23 @@ function setupFieldsModuleListeners() {
   const btnAddFieldAll = document.getElementById('btn-add-field-all');
   const btnAddTreatmentMain = document.getElementById('btn-add-treatment-main');
   const btnAddTreatmentQuick = document.getElementById('btn-add-treatment-quick');
+
+  // Kontrolki wyboru sezonu / roku
+  const seasonSelect = document.getElementById('select-season-year');
+  const btnPrevSeason = document.getElementById('btn-prev-season-year');
+  const btnNextSeason = document.getElementById('btn-next-season-year');
+
+  if (seasonSelect) {
+    seasonSelect.addEventListener('change', () => {
+      setSeasonYear(seasonSelect.value);
+    });
+  }
+  if (btnPrevSeason) {
+    btnPrevSeason.addEventListener('click', () => stepSeasonYear(-1));
+  }
+  if (btnNextSeason) {
+    btnNextSeason.addEventListener('click', () => stepSeasonYear(1));
+  }
 
   if (btnAddField) btnAddField.addEventListener('click', () => openFieldModal());
   if (btnAddFieldMenu) btnAddFieldMenu.addEventListener('click', () => openFieldModal());
@@ -1574,6 +1649,29 @@ function setupFieldsModuleListeners() {
     });
   }
   if (btnCloseTreatment) btnCloseTreatment.addEventListener('click', closeTreatmentModal);
+
+  // Auto-dopasowanie rodzaju zabiegu (Herbicyd, Fungicyd, Insektycyd...) po wybraniu środka
+  const bindSprayTypeAutoDetect = (inputEl, selectEl) => {
+    if (!inputEl || !selectEl) return;
+    const detect = () => {
+      const val = inputEl.value.trim().toLowerCase();
+      if (!val) return;
+      const found = POPULAR_SPRAYS.find(s => s.name.toLowerCase() === val || val.includes(s.name.toLowerCase()));
+      if (found && found.type) {
+        if (found.type.includes('Herbicyd')) selectEl.value = 'Herbicyd';
+        else if (found.type.includes('Fungicyd')) selectEl.value = 'Fungicyd';
+        else if (found.type.includes('Insektycyd')) selectEl.value = 'Insektycyd';
+        else if (found.type.includes('Regulator')) selectEl.value = 'Regulator';
+        else if (found.type.includes('dolistny')) selectEl.value = 'Nawóz dolistny';
+        else if (found.type.includes('doglebowy')) selectEl.value = 'Nawóz doglebowy';
+      }
+    };
+    inputEl.addEventListener('input', detect);
+    inputEl.addEventListener('change', detect);
+  };
+
+  bindSprayTypeAutoDetect(document.getElementById('modal-field-sprays'), document.getElementById('modal-field-treatment-type'));
+  bindSprayTypeAutoDetect(document.getElementById('modal-treatment-product'), document.getElementById('modal-treatment-type'));
 
   // Dynamiczne podpowiedzi odmian w zależności od wpisanej uprawy
   const cropInput = document.getElementById('modal-field-crop');
@@ -1879,6 +1977,14 @@ function renderFieldsList() {
     const fieldTreatments = treatments.filter(t => t.fieldId === field.id);
     const sortedTreatments = [...fieldTreatments].sort((a,b) => new Date(b.date) - new Date(a.date));
 
+    // Jeśli wybrano konkretny sezon, przefiltruj opryski tego sezonu
+    const displayedTreatments = currentSeasonYear === 'all'
+      ? sortedTreatments
+      : sortedTreatments.filter(t => {
+          if (!t.date) return false;
+          return new Date(t.date + 'T00:00:00').getFullYear() === currentSeasonYear;
+        });
+
     // Policz ile zabiegów w poszczególnych latach
     const yearsCounts = {};
     fieldTreatments.forEach(t => {
@@ -1886,6 +1992,10 @@ function renderFieldsList() {
       yearsCounts[yr] = (yearsCounts[yr] || 0) + 1;
     });
     const yearsSummary = Object.keys(yearsCounts).sort((a,b)=>b-a).map(yr => `${yr}: ${yearsCounts[yr]}`).join(', ');
+
+    const seasonTitle = currentSeasonYear === 'all'
+      ? `🧪 Wykonane opryski (${displayedTreatments.length}):`
+      : `🧪 Opryski w Sezonie ${currentSeasonYear} (${displayedTreatments.length}):`;
 
     return `
       <div class="sow-card" id="field-card-${field.id}">
@@ -1909,24 +2019,27 @@ function renderFieldsList() {
         <div style="background:#0f172a; border-radius:8px; padding:10px 12px; margin:10px 0; border:1px solid #1e293b;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div style="font-size:0.75rem; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">
-              🧪 Wykonane opryski (${fieldTreatments.length}):
+              ${seasonTitle}
             </div>
             ${yearsSummary ? `<div style="font-size:0.72rem; color:#38bdf8;">${yearsSummary}</div>` : ''}
           </div>
 
-          ${sortedTreatments.length === 0 ? `
+          ${displayedTreatments.length === 0 ? `
             <div style="font-size:0.78rem; color:var(--text-secondary); padding:2px 0;">
-              Brak wpisanych oprysków na to pole.
+              ${currentSeasonYear === 'all' ? 'Brak wpisanych oprysków na to pole.' : `Brak zabiegów w sezonie ${currentSeasonYear}.`}
             </div>
           ` : `
-            <div style="display:flex; flex-direction:column; gap:4px;">
-              ${sortedTreatments.slice(0, 3).map(t => {
+            <div style="display:flex; flex-direction:column; gap:4px;" id="field-treatments-list-${field.id}">
+              ${displayedTreatments.map((t, idx) => {
                 let badgeColor = '#38bdf8';
                 if (t.treatmentType === 'Herbicyd') badgeColor = '#22c55e';
                 if (t.treatmentType === 'Fungicyd') badgeColor = '#eab308';
                 if (t.treatmentType === 'Insektycyd') badgeColor = '#ef4444';
+                if (t.treatmentType === 'Regulator') badgeColor = '#a855f7';
+                if (t.treatmentType === 'Nawóz dolistny') badgeColor = '#06b6d4';
+                const isExtra = idx >= 3;
                 return `
-                  <div style="font-size:0.8rem; display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                  <div class="field-treat-item-${field.id}" style="font-size:0.8rem; display:${isExtra ? 'none' : 'flex'}; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05);" data-extra="${isExtra ? '1' : '0'}">
                     <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">
                       <strong style="color:${badgeColor};">[${escapeHTML(t.treatmentType)}]</strong> 
                       <span style="color:#ffffff; font-weight:600;">${escapeHTML(t.product)}</span>
@@ -1940,9 +2053,9 @@ function renderFieldsList() {
                 `;
               }).join('')}
             </div>
-            ${sortedTreatments.length > 3 ? `
-              <div style="font-size:0.75rem; color:#38bdf8; margin-top:6px; cursor:pointer;" onclick="openFieldHistoryModal('${field.id}')">
-                ➔ Zobacz wszystkie ${sortedTreatments.length} zabiegów w historii pola
+            ${displayedTreatments.length > 3 ? `
+              <div class="btn-toggle-field-treatments" data-field-id="${field.id}" data-expanded="false" data-count="${displayedTreatments.length}" style="font-size:0.75rem; color:#38bdf8; margin-top:6px; cursor:pointer; font-weight:700; user-select:none;">
+                🔽 Rozwiń wszystkie opryski (${displayedTreatments.length})
               </div>
             ` : ''}
           `}
@@ -1966,6 +2079,22 @@ function renderFieldsList() {
 
   const resetBtn = document.getElementById('btn-reset-crop-filter');
   if (resetBtn) resetBtn.onclick = () => setFieldCropFilter('all', false);
+
+  // Obsługa rozwijania / zwijania listy oprysków na kafelku
+  container.querySelectorAll('.btn-toggle-field-treatments').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const fId = btn.dataset.fieldId;
+      const count = btn.dataset.count;
+      const isExp = btn.dataset.expanded === 'true';
+      const items = container.querySelectorAll(`.field-treat-item-${fId}[data-extra="1"]`);
+      items.forEach(el => {
+        el.style.display = isExp ? 'none' : 'flex';
+      });
+      btn.dataset.expanded = isExp ? 'false' : 'true';
+      btn.innerHTML = isExp ? `🔽 Rozwiń wszystkie opryski (${count})` : `🔼 Zwiń listę oprysków`;
+    };
+  });
 
   container.querySelectorAll('.btn-delete-treatment-quick').forEach(btn => {
     btn.onclick = (e) => {
@@ -2114,6 +2243,61 @@ function renderTreatmentsList() {
   });
 }
 
+const POPULAR_SPRAYS = [
+  { name: 'Boxer 800 EC', type: 'Herbicyd' },
+  { name: 'Input Plex', type: 'Fungicyd' },
+  { name: 'Axial Komplett Pak', type: 'Herbicyd' },
+  { name: 'Moddus 250 EC', type: 'Regulator' },
+  { name: 'Caryx 240 SL', type: 'Regulator' },
+  { name: 'Priaxor', type: 'Fungicyd' },
+  { name: 'Delcaps 050 CS', type: 'Insektycyd' },
+  { name: 'Mocznik 46%', type: 'Nawóz dolistny' },
+  { name: 'Siarczan magnezu', type: 'Nawóz dolistny' },
+  { name: 'Tarcza Łan 250 EW', type: 'Fungicyd' },
+  { name: 'Falcon 460 EC', type: 'Fungicyd' },
+  { name: 'CCC 750 (Antywylegacz)', type: 'Regulator' },
+  { name: 'Roundup 360 Plus', type: 'Herbicyd' },
+  { name: 'Mustang Forte 195 SE', type: 'Herbicyd' },
+  { name: 'Lancet Plus 125 WG', type: 'Herbicyd' },
+  { name: 'Biathlon 4D', type: 'Herbicyd' },
+  { name: 'Prosaro 250 EC', type: 'Fungicyd' },
+  { name: 'Elatus Era', type: 'Fungicyd' },
+  { name: 'Amistar 250 SC', type: 'Fungicyd' },
+  { name: 'Karate Zeon 050 CS', type: 'Insektycyd' },
+  { name: 'Kipen 050 SL', type: 'Insektycyd' },
+  { name: 'Saletra amonowa', type: 'Nawóz doglebowy' },
+  { name: 'Polifoska 6 / 8', type: 'Nawóz doglebowy' },
+  { name: 'YaraVita Zboże / Rzepak', type: 'Nawóz dolistny' }
+];
+
+function populateSpraySuggestions() {
+  const datalist = document.getElementById('spray-suggestions');
+  if (!datalist) return;
+
+  const map = new Map();
+  POPULAR_SPRAYS.forEach(s => {
+    map.set(s.name, s.type);
+  });
+  treatments.forEach(t => {
+    if (t.product && t.product.trim()) {
+      map.set(t.product.trim(), t.treatmentType || 'Oprysk');
+    }
+  });
+  fields.forEach(f => {
+    if (f.sprays && f.sprays.trim()) {
+      f.sprays.split(',').forEach(s => {
+        if (s.trim() && !map.has(s.trim())) {
+          map.set(s.trim(), 'Oprysk');
+        }
+      });
+    }
+  });
+
+  datalist.innerHTML = Array.from(map.entries()).map(([name, type]) => `
+    <option value="${escapeHTML(name)}" label="${escapeHTML(type)}">
+  `).join('');
+}
+
 function openFieldModal(fieldData = null, prefillCrop = null, hideExtras = false) {
   const modal = document.getElementById('field-modal');
   const title = document.getElementById('field-modal-title');
@@ -2143,15 +2327,22 @@ function openFieldModal(fieldData = null, prefillCrop = null, hideExtras = false
     const sprayText = fieldData.sprays || existingProducts.join(', ');
     const spraysInput = document.getElementById('modal-field-sprays');
     const notesInput = document.getElementById('modal-field-notes');
+    const typeSelect = document.getElementById('modal-field-treatment-type');
     if (spraysInput) spraysInput.value = sprayText;
     if (notesInput) notesInput.value = fieldData.notes || '';
+    if (typeSelect && fTreatments.length > 0 && fTreatments[0].treatmentType) {
+      typeSelect.value = fTreatments[0].treatmentType;
+    }
   } else {
     const cropToUse = prefillCrop !== null ? prefillCrop : (currentFieldCropFilter !== 'all' ? getCropDefaultName(currentFieldCropFilter) : '');
     title.textContent = cropToUse 
       ? `Dodaj Pole (${cropToUse})`
       : 'Dodaj Nowe Pole / Działkę';
     document.getElementById('modal-field-id').value = '';
-    document.getElementById('modal-field-sowing-date').value = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const defYr = (currentSeasonYear && currentSeasonYear !== 'all') ? currentSeasonYear : now.getFullYear();
+    const defDate = `${defYr}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    document.getElementById('modal-field-sowing-date').value = defDate;
     document.getElementById('modal-field-crop').value = cropToUse || '';
     document.getElementById('modal-field-variety').value = '';
     const spraysInput = document.getElementById('modal-field-sprays');
@@ -2167,6 +2358,9 @@ function openFieldModal(fieldData = null, prefillCrop = null, hideExtras = false
       <option value="${escapeHTML(f.name)}" label="${parseFloat(f.areaHa).toFixed(2)} ha ${f.crop ? `(${escapeHTML(f.crop)})` : ''}">
     `).join('');
   }
+
+  // Wypełnij podpowiedzi oprysków
+  populateSpraySuggestions();
 
   // Zaktualizuj listę podpowiedzi odmian dla aktualnej uprawy
   const currentCropVal = document.getElementById('modal-field-crop').value;
@@ -2188,6 +2382,7 @@ function saveFieldFromModal() {
   const crop = document.getElementById('modal-field-crop').value.trim();
   const variety = document.getElementById('modal-field-variety').value.trim();
   const sowingDate = document.getElementById('modal-field-sowing-date').value;
+  const treatmentType = document.getElementById('modal-field-treatment-type')?.value || 'Herbicyd';
   const sprays = (document.getElementById('modal-field-sprays')?.value || '').trim();
   const notes = (document.getElementById('modal-field-notes')?.value || '').trim();
   const syncAllSprays = document.getElementById('modal-field-sync-sprays')?.checked;
@@ -2235,13 +2430,14 @@ function saveFieldFromModal() {
             const oldT = treatments.find(t => t.fieldId === f.id && oldSprays && t.product.toLowerCase().trim() === oldSprays.toLowerCase().trim());
             if (oldT) {
               oldT.product = sprays;
+              oldT.treatmentType = treatmentType;
             } else {
               treatments.push({
                 id: 'treatment_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                 fieldId: f.id,
                 fieldName: f.name,
                 date: sowingDate || new Date().toISOString().split('T')[0],
-                treatmentType: 'Oprysk',
+                treatmentType: treatmentType,
                 product: sprays,
                 dosePerHa: '',
                 waterVolume: 200,
@@ -2258,13 +2454,14 @@ function saveFieldFromModal() {
         const oldT = treatments.find(t => t.fieldId === id && oldSprays && t.product.toLowerCase().trim() === oldSprays.toLowerCase().trim());
         if (oldT) {
           oldT.product = sprays;
+          oldT.treatmentType = treatmentType;
         } else {
           treatments.push({
             id: 'treatment_' + Date.now(),
             fieldId: id,
             fieldName: name,
             date: sowingDate || new Date().toISOString().split('T')[0],
-            treatmentType: 'Oprysk',
+            treatmentType: treatmentType,
             product: sprays,
             dosePerHa: '',
             waterVolume: 200,
@@ -2306,7 +2503,7 @@ function saveFieldFromModal() {
             fieldId: f.id,
             fieldName: f.name,
             date: sowingDate || new Date().toISOString().split('T')[0],
-            treatmentType: 'Oprysk',
+            treatmentType: treatmentType,
             product: sprays,
             dosePerHa: '',
             waterVolume: 200,
@@ -2324,7 +2521,7 @@ function saveFieldFromModal() {
         fieldId: fieldId,
         fieldName: name,
         date: sowingDate || new Date().toISOString().split('T')[0],
-        treatmentType: 'Oprysk',
+        treatmentType: treatmentType,
         product: sprays,
         dosePerHa: '',
         waterVolume: 200,
@@ -2446,10 +2643,14 @@ function openTreatmentModal(treatmentData = null, preselectedFieldId = null) {
   } else {
     title.textContent = 'Zapisz Nowy Zabieg / Oprysk';
     document.getElementById('modal-treatment-id').value = '';
-    document.getElementById('modal-treatment-date').value = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const defYr = (currentSeasonYear && currentSeasonYear !== 'all') ? currentSeasonYear : now.getFullYear();
+    const defDate = `${defYr}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    document.getElementById('modal-treatment-date').value = defDate;
     if (preselectedFieldId) fieldSelect.value = preselectedFieldId;
   }
 
+  populateSpraySuggestions();
   updateTreatmentApplyAllLabel();
   modal.classList.add('active');
 }
