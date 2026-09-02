@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=70">
+  <link rel="stylesheet" href="styles.css?v=73">
 </head>
 <body>
 
@@ -318,16 +318,16 @@
       </div>
 
       <!-- PASEK WYBORU SEZONU / ROKU GOSPODARSTWA -->
-      <div class="season-selector-bar" style="display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 8px 16px; border-bottom: 1px solid var(--border-color);">
+      <div class="season-selector-bar" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card-alt); padding: 8px 16px; border-bottom: 1px solid var(--border-color);">
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="font-size: 0.88rem; font-weight: 700; color: #38bdf8;">📅 Rok / Sezon:</span>
+          <span style="font-size: 0.88rem; font-weight: 700; color: var(--primary);">📅 Rok / Sezon:</span>
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <button type="button" class="icon-btn" id="btn-prev-season-year" title="Poprzedni rok" style="padding: 4px 8px; font-size: 0.75rem; background: #1e293b; color: #ffffff; border: 1px solid #334155; border-radius: 6px; cursor: pointer;">◀</button>
-          <select id="select-season-year" class="form-control" style="width: auto; padding: 4px 10px; font-size: 0.85rem; font-weight: 800; color: #22c55e; background: #1e293b; border: 1px solid #22c55e; border-radius: 6px; cursor: pointer;">
+          <button type="button" class="icon-btn" id="btn-prev-season-year" title="Poprzedni rok" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; cursor: pointer;">◀</button>
+          <select id="select-season-year" class="form-control" style="width: auto; padding: 4px 10px; font-size: 0.85rem; font-weight: 800; color: var(--primary); border: 1px solid var(--primary); border-radius: 6px; cursor: pointer;">
             <!-- wypełniane dynamicznie w app.js -->
           </select>
-          <button type="button" class="icon-btn" id="btn-next-season-year" title="Następny rok" style="padding: 4px 8px; font-size: 0.75rem; background: #1e293b; color: #ffffff; border: 1px solid #334155; border-radius: 6px; cursor: pointer;">▶</button>
+          <button type="button" class="icon-btn" id="btn-next-season-year" title="Następny rok" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; cursor: pointer;">▶</button>
         </div>
       </div>
 
@@ -337,7 +337,7 @@
         <!-- ZAKŁADKA 1: MENU (KAFELKI I STATYSTYKI) -->
         <section id="tab-fields-menu" class="tab-pane active">
           <div style="margin-bottom: 12px;">
-            <h2 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">📊 Podsumowanie Upraw</h2>
+            <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--heading-color);">📊 Podsumowanie Upraw</h2>
             <p style="font-size: 0.82rem; color: var(--text-secondary);">Wybierz uprawę, aby zobaczyć i dodać powiązane pola:</p>
           </div>
           
@@ -350,7 +350,7 @@
         <!-- ZAKŁADKA 2: WSZYSTKIE POLA -->
         <section id="tab-fields-all" class="tab-pane">
           <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: nowrap;">
-            <h2 style="font-size: 1.05rem; font-weight: 700; color: #ffffff; margin: 0; white-space: nowrap; flex-shrink: 0;">🌾 Wszystkie Pola i Działki</h2>
+            <h2 style="font-size: 1.05rem; font-weight: 700; color: var(--heading-color); margin: 0; white-space: nowrap; flex-shrink: 0;">🌾 Wszystkie Pola i Działki</h2>
             <button class="btn btn-primary" id="btn-add-field-all" style="width: auto !important; flex-shrink: 0 !important; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 3px; border-radius: 6px; box-shadow: none; white-space: nowrap !important; cursor: pointer;">
               <span>➕ Dodaj Działkę</span>
             </button>
@@ -376,7 +376,7 @@
         <section id="tab-fields-records" class="tab-pane">
           <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
             <div>
-              <h2 style="font-size: 1.15rem; font-weight: 700; color: #ffffff; margin: 0;">🧪 Zapisy Oprysków</h2>
+              <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--heading-color); margin: 0;">🧪 Zapisy Oprysków</h2>
               <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Wszystkie zastosowane środki w gospodarstwie (bez powtórzeń)</p>
             </div>
             <button class="btn btn-primary" id="btn-add-treatment-from-records" style="padding: 6px 12px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; cursor: pointer; border-radius: 8px;">
@@ -727,6 +727,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=70"></script>
+  <script src="app.js?v=73"></script>
 </body>
 </html>
