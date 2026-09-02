@@ -1290,9 +1290,25 @@ function checkUpcomingFarrowingsAndNotify() {
    MODUŁ: POLA I UPRAWY (DZIAŁKI, ZASIEWY, EWIDENCJA OPRYSKÓW, SEZONY)
    ========================================================================== */
 
-let currentSeasonYear = localStorage.getItem('prosnosc_swin_season_year') 
-  ? (localStorage.getItem('prosnosc_swin_season_year') === 'all' ? 'all' : parseInt(localStorage.getItem('prosnosc_swin_season_year'))) 
-  : new Date().getFullYear();
+function getDefaultCurrentSeason() {
+  const now = new Date();
+  const yr = now.getFullYear();
+  const mo = now.getMonth() + 1;
+  return mo >= 8 ? `${yr}/${yr + 1}` : `${yr - 1}/${yr}`;
+}
+
+let savedSeasonRaw = localStorage.getItem('prosnosc_swin_season_year');
+let currentSeasonYear = getDefaultCurrentSeason();
+if (savedSeasonRaw) {
+  if (savedSeasonRaw === 'all') {
+    currentSeasonYear = 'all';
+  } else if (savedSeasonRaw.includes('/')) {
+    currentSeasonYear = savedSeasonRaw;
+  } else if (!isNaN(parseInt(savedSeasonRaw))) {
+    const parsedYr = parseInt(savedSeasonRaw);
+    currentSeasonYear = `${parsedYr}/${parsedYr + 1}`;
+  }
+}
 
 function initFieldsModule() {
   loadCustomCrops();
@@ -1303,41 +1319,80 @@ function initFieldsModule() {
   setupFieldsModuleListeners();
 }
 
-function getAvailableSeasonYears() {
-  const years = new Set();
-  const nowYr = new Date().getFullYear();
-  for (let y = nowYr - 3; y <= nowYr + 2; y++) {
-    years.add(y);
+function isDateInSeason(dateStr, seasonStr) {
+  if (!seasonStr || seasonStr === 'all') return true;
+  if (!dateStr) return false;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return false;
+  const yr = d.getFullYear();
+  const mo = d.getMonth() + 1;
+
+  if (seasonStr.includes('/')) {
+    const [y1, y2] = seasonStr.split('/').map(Number);
+    // Sierpień-grudzień roku początkowego (siewy ozime) lub styczeń-październik roku zbioru
+    if (yr === y1 && mo >= 8) return true;
+    if (yr === y2 && mo <= 10) return true;
+    if (yr === y1 || yr === y2) return true;
+    return false;
   }
+  return yr === parseInt(seasonStr);
+}
+
+function getAvailableSeasons() {
+  const seasons = new Set();
+  const now = new Date();
+  const baseYr = now.getMonth() + 1 >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+
+  // Generuj sezony wstecz i w przód
+  for (let y = baseYr - 3; y <= baseYr + 2; y++) {
+    seasons.add(`${y}/${y + 1}`);
+  }
+
+  // Dodaj sezony z istniejących zabiegów i pól
   treatments.forEach(t => {
     if (t.date) {
-      const yr = new Date(t.date + 'T00:00:00').getFullYear();
-      if (!isNaN(yr)) years.add(yr);
+      const d = new Date(t.date + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const s = m >= 8 ? `${y}/${y + 1}` : `${y - 1}/${y}`;
+        seasons.add(s);
+      }
     }
   });
   fields.forEach(f => {
     if (f.sowingDate) {
-      const yr = new Date(f.sowingDate + 'T00:00:00').getFullYear();
-      if (!isNaN(yr)) years.add(yr);
+      const d = new Date(f.sowingDate + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const s = m >= 8 ? `${y}/${y + 1}` : `${y - 1}/${y}`;
+        seasons.add(s);
+      }
     }
   });
-  return Array.from(years).sort((a, b) => b - a);
+
+  return Array.from(seasons).sort((a, b) => {
+    const yA = parseInt(a.split('/')[0]);
+    const yB = parseInt(b.split('/')[0]);
+    return yB - yA;
+  });
 }
 
 function renderSeasonYearSelector() {
   const select = document.getElementById('select-season-year');
   if (!select) return;
 
-  const availableYears = getAvailableSeasonYears();
+  const availableSeasons = getAvailableSeasons();
   let optionsHtml = `<option value="all" ${currentSeasonYear === 'all' ? 'selected' : ''}>🌟 Wszystkie Sezony (Całość)</option>`;
-  availableYears.forEach(yr => {
-    optionsHtml += `<option value="${yr}" ${currentSeasonYear === yr ? 'selected' : ''}>Sezon ${yr}</option>`;
+  availableSeasons.forEach(s => {
+    optionsHtml += `<option value="${s}" ${currentSeasonYear === s ? 'selected' : ''}>Sezon ${s}</option>`;
   });
   select.innerHTML = optionsHtml;
 }
 
-function setSeasonYear(year) {
-  currentSeasonYear = year === 'all' ? 'all' : parseInt(year);
+function setSeasonYear(season) {
+  currentSeasonYear = season;
   localStorage.setItem('prosnosc_swin_season_year', currentSeasonYear);
   renderSeasonYearSelector();
   renderFieldsStats();
@@ -1348,10 +1403,17 @@ function setSeasonYear(year) {
 
 function stepSeasonYear(delta) {
   if (currentSeasonYear === 'all') {
-    currentSeasonYear = new Date().getFullYear();
+    currentSeasonYear = getDefaultCurrentSeason();
   }
-  let nextYr = currentSeasonYear + delta;
-  setSeasonYear(nextYr);
+  let y1;
+  if (currentSeasonYear.includes('/')) {
+    y1 = parseInt(currentSeasonYear.split('/')[0]);
+  } else {
+    y1 = parseInt(currentSeasonYear);
+  }
+  const nextY1 = y1 + delta;
+  const nextSeason = `${nextY1}/${nextY1 + 1}`;
+  setSeasonYear(nextSeason);
 }
 
 function loadCustomCrops() {
@@ -1491,6 +1553,7 @@ function saveFieldsData(skipCloudPush = false) {
   renderFieldsStats();
   renderFieldsList();
   renderTreatmentsList();
+  renderUniqueSpraysRecords();
   if (!skipCloudPush && familyCode) {
     pushFarmDataToCloud();
   }
@@ -1515,6 +1578,7 @@ function saveTreatmentsData(skipCloudPush = false) {
   renderFieldsStats();
   renderFieldsList();
   renderTreatmentsList();
+  renderUniqueSpraysRecords();
   if (!skipCloudPush && familyCode) {
     pushFarmDataToCloud();
   }
@@ -1533,6 +1597,7 @@ function switchFieldTab(targetTab) {
 
   if (targetTab === 'fields-all') renderFieldsList();
   if (targetTab === 'fields-menu') renderFieldsStats();
+  if (targetTab === 'fields-records') renderUniqueSpraysRecords();
 }
 
 function setupFieldsModuleListeners() {
@@ -1551,6 +1616,15 @@ function setupFieldsModuleListeners() {
   const btnAddFieldAll = document.getElementById('btn-add-field-all');
   const btnAddTreatmentMain = document.getElementById('btn-add-treatment-main');
   const btnAddTreatmentQuick = document.getElementById('btn-add-treatment-quick');
+  const btnAddTreatFromRecords = document.getElementById('btn-add-treatment-from-records');
+  const recordsSearchInput = document.getElementById('records-spray-search-input');
+
+  if (btnAddTreatFromRecords) {
+    btnAddTreatFromRecords.addEventListener('click', () => openTreatmentModal());
+  }
+  if (recordsSearchInput) {
+    recordsSearchInput.addEventListener('input', () => renderUniqueSpraysRecords());
+  }
 
   // Kontrolki wyboru sezonu / roku
   const seasonSelect = document.getElementById('select-season-year');
@@ -1649,6 +1723,19 @@ function setupFieldsModuleListeners() {
     });
   }
   if (btnCloseTreatment) btnCloseTreatment.addEventListener('click', closeTreatmentModal);
+
+  // Formularz Edycji Środka w Zapisach
+  const editSprayForm = document.getElementById('edit-spray-form');
+  const btnCloseEditSpray = document.getElementById('btn-close-edit-spray-modal');
+  if (editSprayForm) {
+    editSprayForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveEditSprayFromModal();
+    });
+  }
+  if (btnCloseEditSpray) {
+    btnCloseEditSpray.addEventListener('click', closeEditSprayModal);
+  }
 
   // Auto-dopasowanie rodzaju zabiegu (Herbicyd, Fungicyd, Insektycyd...) po wybraniu środka
   const bindSprayTypeAutoDetect = (inputEl, selectEl) => {
@@ -1905,12 +1992,29 @@ function renderCropFilterChips() {
   const chipsContainer = document.getElementById('field-crop-chips');
   if (!chipsContainer) return;
 
+  const totalAreaAll = fields.reduce((sum, f) => sum + (parseFloat(f.areaHa) || 0), 0);
+  const totalAreaAllStr = totalAreaAll > 0 ? `${parseFloat(totalAreaAll.toFixed(2))} ha` : '0 ha';
+
   const allCrops = getAllCropsList();
-  let html = `<button class="chip ${currentFieldCropFilter === 'all' ? 'active' : ''}" data-crop-filter="all" style="justify-content:center; text-align:center; width:100%; padding:8px 4px;">🌾 Wszystkie</button>`;
+  let html = `
+    <button class="chip ${currentFieldCropFilter === 'all' ? 'active' : ''}" data-crop-filter="all" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; width:100%; padding:6px 4px; line-height:1.2;">
+      <span>🌾 Wszystkie</span>
+      <span style="font-size:0.72rem; font-weight:800; opacity:0.85; margin-top:2px;">${totalAreaAllStr}</span>
+    </button>
+  `;
 
   allCrops.forEach(crop => {
     const isActive = currentFieldCropFilter === crop.key;
-    html += `<button class="chip ${isActive ? 'active' : ''}" data-crop-filter="${crop.key}" style="justify-content:center; text-align:center; width:100%; padding:8px 4px;">${crop.icon} ${escapeHTML(crop.shortName)}</button>`;
+    const matchingFields = fields.filter(f => filterFieldByCrop(f, crop.key));
+    const cropArea = matchingFields.reduce((sum, f) => sum + (parseFloat(f.areaHa) || 0), 0);
+    const cropAreaStr = cropArea > 0 ? `${parseFloat(cropArea.toFixed(2))} ha` : '0 ha';
+
+    html += `
+      <button class="chip ${isActive ? 'active' : ''}" data-crop-filter="${crop.key}" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; width:100%; padding:6px 4px; line-height:1.2;">
+        <span>${crop.icon} ${escapeHTML(crop.shortName)}</span>
+        <span style="font-size:0.72rem; font-weight:800; opacity:0.85; margin-top:2px;">${cropAreaStr}</span>
+      </button>
+    `;
   });
 
   chipsContainer.innerHTML = html;
@@ -1945,13 +2049,20 @@ function renderFieldsList() {
 
   // Pasek aktywnego filtru jeśli wybrano konkretną uprawę
   if (currentFieldCropFilter !== 'all') {
+    const activeCropFields = fields.filter(f => filterFieldByCrop(f, currentFieldCropFilter));
+    const activeCropArea = activeCropFields.reduce((sum, f) => sum + (parseFloat(f.areaHa) || 0), 0).toFixed(2);
+
     html += `
-      <div style="background:#1e293b; border:1px solid var(--primary); border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="background:#1e293b; border:1px solid var(--primary); border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <div>
-          <span style="font-weight:800; color:#ffffff;">🌾 Filtrowanie: ${getCropFilterName(currentFieldCropFilter)}</span>
-          <span style="font-size:0.8rem; color:var(--text-secondary); margin-left:6px;">(${filtered.length} działek)</span>
+          <div style="font-weight:800; color:#ffffff; font-size:0.95rem;">
+            🌾 ${getCropFilterName(currentFieldCropFilter)}: <span style="color:#22c55e; font-size:1.05rem; font-weight:900;">${activeCropArea} ha</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
+            Liczba działek: <strong>${filtered.length}</strong>
+          </div>
         </div>
-        <button class="btn btn-sm btn-secondary" id="btn-reset-crop-filter" style="padding:4px 10px; font-size:0.78rem;">
+        <button class="btn btn-sm btn-secondary" id="btn-reset-crop-filter" style="padding:6px 12px; font-size:0.78rem; white-space:nowrap; flex-shrink:0;">
           ✖️ Pokaż wszystkie
         </button>
       </div>
@@ -1980,10 +2091,7 @@ function renderFieldsList() {
     // Jeśli wybrano konkretny sezon, przefiltruj opryski tego sezonu
     const displayedTreatments = currentSeasonYear === 'all'
       ? sortedTreatments
-      : sortedTreatments.filter(t => {
-          if (!t.date) return false;
-          return new Date(t.date + 'T00:00:00').getFullYear() === currentSeasonYear;
-        });
+      : sortedTreatments.filter(t => isDateInSeason(t.date, currentSeasonYear));
 
     // Policz ile zabiegów w poszczególnych latach
     const yearsCounts = {};
@@ -2128,7 +2236,11 @@ function renderTreatmentsList() {
 
   const query = (document.getElementById('treatment-search-input')?.value || '').toLowerCase();
   const sorted = [...treatments].sort((a,b) => new Date(b.date) - new Date(a.date));
-  const filtered = sorted.filter(t => 
+  const seasonFiltered = currentSeasonYear === 'all'
+    ? sorted
+    : sorted.filter(t => isDateInSeason(t.date, currentSeasonYear));
+
+  const filtered = seasonFiltered.filter(t => 
     (t.fieldName || '').toLowerCase().includes(query) ||
     (t.product || '').toLowerCase().includes(query) ||
     (t.treatmentType || '').toLowerCase().includes(query) ||
@@ -2148,13 +2260,13 @@ function renderTreatmentsList() {
     `;
 
     fields.forEach(field => {
-      const fieldTreatments = treatments.filter(t => t.fieldId === field.id);
+      const fieldTreatments = treatments.filter(t => t.fieldId === field.id && isDateInSeason(t.date, currentSeasonYear));
       html += `
         <div class="card" style="padding: 12px 14px; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
           <div>
             <div style="font-weight: 800; font-size: 0.95rem; color: #ffffff;">🌾 ${escapeHTML(field.name)}</div>
             <div style="font-size: 0.78rem; color: var(--text-secondary);">
-              ${parseFloat(field.areaHa).toFixed(2)} ha • <strong>${escapeHTML(field.crop || 'Brak uprawy')}</strong> (${fieldTreatments.length} zabiegów)
+              ${parseFloat(field.areaHa).toFixed(2)} ha • <strong>${escapeHTML(field.crop || 'Brak uprawy')}</strong> (${fieldTreatments.length} zabiegów w ${currentSeasonYear === 'all' ? 'historii' : 'sezonie'})
             </div>
           </div>
           <button class="btn btn-primary btn-sm btn-quick-spray-field" data-field-id="${field.id}" style="padding: 8px 12px; font-size: 0.82rem; white-space: nowrap;">
@@ -2168,7 +2280,7 @@ function renderTreatmentsList() {
         </div>
       </div>
       <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
-        📋 Historia wykonanych zabiegów:
+        📋 Historia wykonanych zabiegów ${currentSeasonYear === 'all' ? '(Wszystkie sezony)' : `(Sezon ${currentSeasonYear})`}:
       </div>
     `;
   }
@@ -2241,6 +2353,341 @@ function renderTreatmentsList() {
     if (btnEdit) btnEdit.onclick = () => openTreatmentModal(t);
     if (btnDelete) btnDelete.onclick = () => deleteTreatment(t.id);
   });
+}
+
+let currentRecordsCategoryFilter = 'all';
+
+function getUniqueAppliedSprays() {
+  const map = new Map();
+
+  // 1. Z bazy zabiegów (treatments)
+  treatments.forEach(t => {
+    if (!t.product || !t.product.trim()) return;
+    const name = t.product.trim();
+    const key = name.toLowerCase();
+
+    const relatedField = fields.find(f => f.id === t.fieldId);
+    const cropName = relatedField ? (relatedField.crop || 'Inna uprawa') : '';
+    const fieldArea = relatedField ? (parseFloat(relatedField.areaHa) || 0) : 0;
+    const fieldName = t.fieldName || (relatedField ? relatedField.name : 'Pole');
+
+    if (!map.has(key)) {
+      map.set(key, {
+        name: name,
+        type: t.treatmentType || 'Herbicyd',
+        crops: new Set(),
+        fieldsMap: new Map(),
+        treatmentCount: 0,
+        lastDate: t.date || '',
+        doses: new Set(),
+        waterVolumes: new Set(),
+        reasons: new Set(),
+        notes: new Set()
+      });
+    }
+
+    const item = map.get(key);
+    item.treatmentCount++;
+    if (cropName) item.crops.add(cropName);
+    if (t.fieldId) {
+      item.fieldsMap.set(t.fieldId, { name: fieldName, area: fieldArea });
+    }
+    if (t.date && (!item.lastDate || new Date(t.date) > new Date(item.lastDate))) {
+      item.lastDate = t.date;
+    }
+    if (t.dosePerHa && t.dosePerHa.trim()) item.doses.add(t.dosePerHa.trim());
+    if (t.waterVolume) item.waterVolumes.add(t.waterVolume);
+    if (t.reasonTarget && t.reasonTarget.trim()) item.reasons.add(t.reasonTarget.trim());
+    if (t.notes && t.notes.trim()) item.notes.add(t.notes.trim());
+    if (t.treatmentType) item.type = t.treatmentType;
+  });
+
+  // 2. Z pól, które mają wpisane opryski w polach (field.sprays)
+  fields.forEach(f => {
+    if (!f.sprays || !f.sprays.trim()) return;
+    const sprayList = f.sprays.split(',');
+    sprayList.forEach(rawS => {
+      const name = rawS.trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!map.has(key)) {
+        const foundPopular = POPULAR_SPRAYS.find(p => p.name.toLowerCase() === key);
+        map.set(key, {
+          name: name,
+          type: foundPopular ? foundPopular.type : 'Oprysk',
+          crops: new Set(f.crop ? [f.crop] : []),
+          fieldsMap: new Map([[f.id, { name: f.name, area: parseFloat(f.areaHa) || 0 }]]),
+          treatmentCount: 1,
+          lastDate: f.sowingDate || '',
+          doses: new Set(),
+          waterVolumes: new Set(),
+          reasons: new Set(),
+          notes: new Set()
+        });
+      } else {
+        const item = map.get(key);
+        if (f.crop) item.crops.add(f.crop);
+        item.fieldsMap.set(f.id, { name: f.name, area: parseFloat(f.areaHa) || 0 });
+      }
+    });
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.lastDate && b.lastDate) return new Date(b.lastDate) - new Date(a.lastDate);
+    if (a.lastDate) return -1;
+    if (b.lastDate) return 1;
+    return b.treatmentCount - a.treatmentCount;
+  });
+}
+
+function renderUniqueSpraysRecords() {
+  const container = document.getElementById('records-sprays-container');
+  const chipsContainer = document.getElementById('records-category-chips');
+  if (!container) return;
+
+  const uniqueSprays = getUniqueAppliedSprays();
+  const query = (document.getElementById('records-spray-search-input')?.value || '').toLowerCase().trim();
+
+  // Kategorie
+  const categories = [
+    { key: 'all', label: 'Wszystkie', icon: '🌾' },
+    { key: 'Herbicyd', label: 'Herbicydy', icon: '🌿' },
+    { key: 'Fungicyd', label: 'Fungicydy', icon: '🍄' },
+    { key: 'Insektycyd', label: 'Insektycydy', icon: '🐛' },
+    { key: 'Regulator', label: 'Regulatory', icon: '📏' },
+    { key: 'Nawóz dolistny', label: 'Odżywki', icon: '🧪' },
+    { key: 'Nawóz doglebowy', label: 'Doglebowe', icon: '🌱' }
+  ];
+
+  if (chipsContainer) {
+    chipsContainer.innerHTML = categories.map(cat => {
+      const isActive = currentRecordsCategoryFilter === cat.key;
+      const count = cat.key === 'all' 
+        ? uniqueSprays.length 
+        : uniqueSprays.filter(s => (s.type || '').toLowerCase().includes(cat.key.toLowerCase())).length;
+      return `
+        <button class="chip ${isActive ? 'active' : ''}" data-cat="${cat.key}" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; width:100%; padding:6px 4px; line-height:1.2;">
+          <span>${cat.icon} ${escapeHTML(cat.label)}</span>
+          <span style="font-size:0.72rem; font-weight:800; opacity:0.85; margin-top:2px;">(${count})</span>
+        </button>
+      `;
+    }).join('');
+
+    chipsContainer.querySelectorAll('.chip').forEach(btn => {
+      btn.onclick = () => {
+        currentRecordsCategoryFilter = btn.dataset.cat;
+        renderUniqueSpraysRecords();
+      };
+    });
+  }
+
+  // Filtrowanie
+  const filtered = uniqueSprays.filter(s => {
+    const matchesCat = currentRecordsCategoryFilter === 'all' || 
+      (s.type || '').toLowerCase().includes(currentRecordsCategoryFilter.toLowerCase());
+    const cropsStr = Array.from(s.crops).join(' ').toLowerCase();
+    const fieldsStr = Array.from(s.fieldsMap.values()).map(f => f.name).join(' ').toLowerCase();
+    const matchesQuery = !query || 
+      s.name.toLowerCase().includes(query) ||
+      (s.type || '').toLowerCase().includes(query) ||
+      cropsStr.includes(query) ||
+      fieldsStr.includes(query);
+    return matchesCat && matchesQuery;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 30px 16px;">
+        <div class="empty-icon">🧪</div>
+        <h3>Brak zapisanych unikalnych oprysków</h3>
+        <p style="margin-top:6px; color:var(--text-secondary);">${query ? 'Nie znaleziono oprysków pasujących do wyszukiwania.' : 'Gdy dodasz opryski do pól lub wykonasz zabieg, pojawią się tutaj bez żadnych powtórzeń!'}</p>
+        <button class="btn btn-primary" id="btn-empty-add-treatment" style="margin-top:14px;">
+          ➕ Wpisz Pierwszy Oprysk
+        </button>
+      </div>
+    `;
+    const btnEmpty = document.getElementById('btn-empty-add-treatment');
+    if (btnEmpty) btnEmpty.onclick = () => openTreatmentModal();
+    return;
+  }
+
+  let html = `
+    <div style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+      <span>Łącznie unikalnych środków: <strong style="color:#22c55e;">${filtered.length}</strong></span>
+      <span style="font-size:0.75rem; color:#38bdf8;">✨ Bez powtórzeń</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+  `;
+
+  filtered.forEach(s => {
+    let typeColor = '#38bdf8';
+    if (s.type === 'Herbicyd') typeColor = '#22c55e';
+    if (s.type === 'Fungicyd') typeColor = '#eab308';
+    if (s.type === 'Insektycyd') typeColor = '#ef4444';
+    if (s.type === 'Regulator') typeColor = '#a855f7';
+    if (s.type.includes('Nawóz')) typeColor = '#06b6d4';
+
+    const cropsArr = Array.from(s.crops);
+    const fieldsArr = Array.from(s.fieldsMap.values());
+    const totalArea = fieldsArr.reduce((sum, f) => sum + (f.area || 0), 0).toFixed(2);
+    const lastDateFormatted = s.lastDate ? new Date(s.lastDate + 'T00:00:00').toLocaleDateString('pl-PL') : 'Brak daty';
+    const dosesStr = Array.from(s.doses).join(', ');
+
+    html += `
+      <div class="card" style="padding:14px; margin-bottom:0; border:1px solid #1e293b; background:#0f172a; border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+          <div>
+            <div style="font-size:1.05rem; font-weight:800; color:#ffffff;">🧪 ${escapeHTML(s.name)}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+              ${cropsArr.map(c => `
+                <span class="badge" style="font-size:0.72rem; padding:2px 6px; background:#1e293b; color:#38bdf8; border:1px solid #334155;">
+                  🌾 ${escapeHTML(c)}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+          <span class="badge" style="background:#1e293b; color:${typeColor}; border:1px solid ${typeColor}; font-size:0.78rem; white-space:nowrap; font-weight:700;">
+            ${escapeHTML(s.type)}
+          </span>
+        </div>
+
+        <div style="font-size:0.82rem; color:var(--text-secondary); margin:8px 0; line-height:1.4;">
+          <div>📍 Działki: <strong>${fieldsArr.length}</strong> (łącznie <strong style="color:#22c55e;">${totalArea} ha</strong>) • Użyto: <strong>${s.treatmentCount}x</strong></div>
+          <div>📅 Ostatnie użycie: <strong style="color:#ffffff;">${lastDateFormatted}</strong></div>
+          ${dosesStr ? `<div>💧 Stosowane dawki: <strong style="color:#ffffff;">${escapeHTML(dosesStr)}</strong></div>` : ''}
+          ${fieldsArr.length > 0 ? `<div style="font-size:0.76rem; color:#94a3b8; margin-top:3px;">🌾 Pola: ${escapeHTML(fieldsArr.map(f=>f.name).join(', '))}</div>` : ''}
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px;">
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm btn-secondary btn-edit-unique-spray" data-spray-name="${escapeHTML(s.name)}" data-spray-type="${escapeHTML(s.type)}" title="Edytuj nazwę lub rodzaj" style="padding:6px 10px; font-size:0.75rem; border-radius:6px; cursor:pointer;">
+              ✏️ Edytuj
+            </button>
+            <button class="btn btn-sm btn-secondary btn-delete-unique-spray" data-spray-name="${escapeHTML(s.name)}" title="Usuń ten środek ze wszystkich wpisów" style="padding:6px 10px; font-size:0.75rem; color:#ef4444; border-color:rgba(239,68,68,0.3); border-radius:6px; cursor:pointer;">
+              🗑️ Usuń
+            </button>
+          </div>
+          <button class="btn btn-sm btn-primary btn-apply-unique-spray" data-spray-name="${escapeHTML(s.name)}" data-spray-type="${escapeHTML(s.type)}" style="padding:6px 14px; font-size:0.78rem; font-weight:700; border-radius:6px; cursor:pointer; white-space:nowrap;">
+            ➕ Zastosuj
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+
+  container.querySelectorAll('.btn-edit-unique-spray').forEach(btn => {
+    btn.onclick = () => {
+      const sprayName = btn.dataset.sprayName;
+      const sprayType = btn.dataset.sprayType;
+      openEditSprayModal(sprayName, sprayType);
+    };
+  });
+
+  container.querySelectorAll('.btn-delete-unique-spray').forEach(btn => {
+    btn.onclick = () => {
+      const sprayName = btn.dataset.sprayName;
+      deleteUniqueSpray(sprayName);
+    };
+  });
+
+  container.querySelectorAll('.btn-apply-unique-spray').forEach(btn => {
+    btn.onclick = () => {
+      const sprayName = btn.dataset.sprayName;
+      const sprayType = btn.dataset.sprayType;
+      openTreatmentModal(null, null);
+      setTimeout(() => {
+        const prodInput = document.getElementById('modal-treatment-product');
+        const typeSelect = document.getElementById('modal-treatment-type');
+        if (prodInput) prodInput.value = sprayName;
+        if (typeSelect && sprayType) typeSelect.value = sprayType;
+      }, 50);
+    };
+  });
+}
+
+function openEditSprayModal(name, type) {
+  const modal = document.getElementById('edit-spray-modal');
+  if (!modal) return;
+
+  document.getElementById('modal-edit-spray-old-name').value = name || '';
+  document.getElementById('modal-edit-spray-name').value = name || '';
+  const typeSelect = document.getElementById('modal-edit-spray-type');
+  if (typeSelect && type) {
+    typeSelect.value = type;
+  }
+  modal.classList.add('active');
+}
+
+function closeEditSprayModal() {
+  const modal = document.getElementById('edit-spray-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveEditSprayFromModal() {
+  const oldName = (document.getElementById('modal-edit-spray-old-name')?.value || '').trim();
+  const newName = (document.getElementById('modal-edit-spray-name')?.value || '').trim();
+  const newType = document.getElementById('modal-edit-spray-type')?.value || 'Herbicyd';
+
+  if (!newName) {
+    showToast('Podaj nazwę środka!');
+    return;
+  }
+
+  const oldLower = oldName.toLowerCase();
+
+  // 1. Zaktualizuj wpisy w treatments
+  treatments.forEach(t => {
+    if (t.product && t.product.trim().toLowerCase() === oldLower) {
+      t.product = newName;
+      if (newType) t.treatmentType = newType;
+    }
+  });
+
+  // 2. Zaktualizuj wpisy w fields.sprays
+  fields.forEach(f => {
+    if (f.sprays && f.sprays.toLowerCase().includes(oldLower)) {
+      const parts = f.sprays.split(',').map(s => {
+        if (s.trim().toLowerCase() === oldLower) {
+          return newName;
+        }
+        return s.trim();
+      });
+      f.sprays = parts.join(', ');
+    }
+  });
+
+  saveTreatmentsData(false);
+  saveFieldsData(false);
+  closeEditSprayModal();
+  showToast(`✏️ Zaktualizowano środek: ${newName}`);
+}
+
+function deleteUniqueSpray(sprayName) {
+  if (!sprayName) return;
+  const targetLower = sprayName.trim().toLowerCase();
+
+  const confirmMsg = `Czy na pewno chcesz usunąć środek "${sprayName}" ze wszystkich pól i ewidencji zabiegów?`;
+  if (!confirm(confirmMsg)) return;
+
+  // 1. Usuń zabiegi z treatments
+  treatments = treatments.filter(t => (t.product || '').trim().toLowerCase() !== targetLower);
+
+  // 2. Usuń ten środek z pól fields.sprays
+  fields.forEach(f => {
+    if (f.sprays && f.sprays.toLowerCase().includes(targetLower)) {
+      const parts = f.sprays.split(',')
+        .map(s => s.trim())
+        .filter(s => s.toLowerCase() !== targetLower);
+      f.sprays = parts.join(', ');
+    }
+  });
+
+  saveTreatmentsData(false);
+  saveFieldsData(false);
+  showToast(`🗑️ Usunięto środek: ${sprayName}`);
 }
 
 const POPULAR_SPRAYS = [
@@ -2340,8 +2787,17 @@ function openFieldModal(fieldData = null, prefillCrop = null, hideExtras = false
       : 'Dodaj Nowe Pole / Działkę';
     document.getElementById('modal-field-id').value = '';
     const now = new Date();
-    const defYr = (currentSeasonYear && currentSeasonYear !== 'all') ? currentSeasonYear : now.getFullYear();
-    const defDate = `${defYr}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    let defDate = now.toISOString().split('T')[0];
+    if (currentSeasonYear && currentSeasonYear !== 'all') {
+      if (currentSeasonYear.includes('/')) {
+        const [y1, y2] = currentSeasonYear.split('/').map(Number);
+        if (now.getFullYear() !== y1 && now.getFullYear() !== y2) {
+          defDate = `${y1}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        }
+      } else {
+        defDate = `${currentSeasonYear}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
+    }
     document.getElementById('modal-field-sowing-date').value = defDate;
     document.getElementById('modal-field-crop').value = cropToUse || '';
     document.getElementById('modal-field-variety').value = '';
@@ -2644,8 +3100,17 @@ function openTreatmentModal(treatmentData = null, preselectedFieldId = null) {
     title.textContent = 'Zapisz Nowy Zabieg / Oprysk';
     document.getElementById('modal-treatment-id').value = '';
     const now = new Date();
-    const defYr = (currentSeasonYear && currentSeasonYear !== 'all') ? currentSeasonYear : now.getFullYear();
-    const defDate = `${defYr}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    let defDate = now.toISOString().split('T')[0];
+    if (currentSeasonYear && currentSeasonYear !== 'all') {
+      if (currentSeasonYear.includes('/')) {
+        const [y1, y2] = currentSeasonYear.split('/').map(Number);
+        if (now.getFullYear() !== y1 && now.getFullYear() !== y2) {
+          defDate = `${y1}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        }
+      } else {
+        defDate = `${currentSeasonYear}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
+    }
     document.getElementById('modal-treatment-date').value = defDate;
     if (preselectedFieldId) fieldSelect.value = preselectedFieldId;
   }

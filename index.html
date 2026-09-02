@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=65">
+  <link rel="stylesheet" href="styles.css?v=70">
 </head>
 <body>
 
@@ -372,6 +372,34 @@
           </div>
         </section>
 
+        <!-- ZAKŁADKA 3: ZAPISY (UNIKALNY REJESTR WSZYSTKICH ZASTOSOWANYCH OPRYSKÓW) -->
+        <section id="tab-fields-records" class="tab-pane">
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <div>
+              <h2 style="font-size: 1.15rem; font-weight: 700; color: #ffffff; margin: 0;">🧪 Zapisy Oprysków</h2>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Wszystkie zastosowane środki w gospodarstwie (bez powtórzeń)</p>
+            </div>
+            <button class="btn btn-primary" id="btn-add-treatment-from-records" style="padding: 6px 12px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; cursor: pointer; border-radius: 8px;">
+              <span>➕ Nowy Zabieg</span>
+            </button>
+          </div>
+
+          <!-- WYSZUKIWARKA W ZAPISACH -->
+          <div class="search-filter-bar" style="margin-bottom: 10px;">
+            <input type="text" id="records-spray-search-input" class="form-control" placeholder="🔍 Szukaj oprysku, rośliny, typu...">
+          </div>
+
+          <!-- KATEGORIE OPRYSKÓW / CHIPSY FILTRACJI W ZAPISACH -->
+          <div id="records-category-chips" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">
+            <!-- wypełniane przez renderUniqueSpraysRecords w app.js -->
+          </div>
+
+          <!-- LISTA UNIKALNYCH OPRYSKÓW -->
+          <div id="records-sprays-container">
+            <!-- Wstrzykiwane przez app.js -->
+          </div>
+        </section>
+
       </main>
 
       <!-- DOLNY PASEK NAWIGACJI DLA PÓL -->
@@ -382,7 +410,11 @@
         </button>
         <button class="nav-item-fields" data-field-tab="fields-all">
           <span class="nav-icon">🌾</span>
-          <span>Wszystkie Pola</span>
+          <span>Pola</span>
+        </button>
+        <button class="nav-item-fields" data-field-tab="fields-records">
+          <span class="nav-icon">🧪</span>
+          <span>Zapisy</span>
         </button>
       </nav>
 
@@ -658,6 +690,43 @@
     </div>
   </div>
 
-  <script src="app.js?v=65"></script>
+  <!-- MODAL EDYCJI ŚRODKA / OPRYSKU W ZAPISACH -->
+  <div class="modal-overlay" id="edit-spray-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 16px; color: #ffffff;">✏️ Edytuj Zapisany Środek / Oprysk</h3>
+      <form id="edit-spray-form">
+        <input type="hidden" id="modal-edit-spray-old-name">
+
+        <div class="form-group">
+          <label for="modal-edit-spray-name">Nazwa środka / preparatu:*</label>
+          <input type="text" id="modal-edit-spray-name" class="form-control" required autocomplete="off" placeholder="np. Boxer 800 EC">
+        </div>
+
+        <div class="form-group">
+          <label for="modal-edit-spray-type">Rodzaj zabiegu:*</label>
+          <select id="modal-edit-spray-type" class="form-control">
+            <option value="Herbicyd">🌿 Herbicyd (odchwaszczanie)</option>
+            <option value="Fungicyd">🍄 Fungicyd (grzybobójczy T1/T2/T3)</option>
+            <option value="Insektycyd">🐛 Insektycyd (robak)</option>
+            <option value="Regulator">📏 Regulator wzrostu (skracanie)</option>
+            <option value="Nawóz dolistny">🧪 Nawóz dolistny / Odżywka</option>
+            <option value="Nawóz doglebowy">🌱 Nawożenie doglebowe (NPK/Saletra)</option>
+            <option value="Inny">📋 Inny zabieg</option>
+          </select>
+        </div>
+
+        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:16px; line-height:1.4;">
+          ℹ️ Zmiana nazwy lub rodzaju zaktualizuje wszystkie dotychczasowe wpisy w polach i historii zabiegów.
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-edit-spray-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Zapisz Zmiany</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js?v=70"></script>
 </body>
 </html>
