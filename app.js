@@ -284,6 +284,7 @@ function saveSowsData(skipCloudPush = false) {
   localStorage.setItem('prosnosc_swin_sows', JSON.stringify(sows));
   if (!skipCloudPush && familyCode) {
     pushFarmDataToCloud();
+    scheduleCloudBirthAlerts();
   }
 }
 
@@ -1176,8 +1177,9 @@ function setupNotificationListeners() {
         updateNotificationButtonState();
         if (permission === 'granted') {
           showToast('✅ Powiadomienia włączone!');
-          sendAppNotification('🔔 Powiadomienia włączone!', 'Będziesz otrzymywać przypomnienia na 3 dni przed porodem maciory.');
+          sendAppNotification('🔔 Powiadomienia włączone!', 'Będziesz otrzymywać przypomnienia na 3 dni przed porodem maciory (nawet przy zamkniętej aplikacji).');
           checkUpcomingFarrowingsAndNotify();
+          scheduleCloudBirthAlerts();
         } else if (permission === 'denied') {
           showToast('Zezwolenie na powiadomienia zostało zablokowane w przeglądarce.');
         }
@@ -1194,14 +1196,36 @@ function setupNotificationListeners() {
           if (p === 'granted') {
             updateNotificationButtonState();
             sendAppNotification('🚨 Test: Poród za 3 dni!', 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Przygotuj porodówkę.');
+            sendCloudTestAlert();
           } else {
             showToast('Musisz najpierw zezwolić na powiadomienia!');
           }
         });
       } else {
         sendAppNotification('🚨 Test: Poród za 3 dni!', 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Przygotuj porodówkę.');
+        sendCloudTestAlert();
       }
     });
+  }
+}
+
+async function sendCloudTestAlert() {
+  if (!familyCode) return;
+  const cleanTopic = familyCode.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  try {
+    await fetch(`https://ntfy.sh/prosnosc_swin_${cleanTopic}`, {
+      method: 'POST',
+      headers: {
+        'Title': '🚨 Test: Poród maciory za 3 dni!',
+        'Priority': 'urgent',
+        'Tags': 'pig,warning,alarm_clock',
+        'Click': window.location.href
+      },
+      body: 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Powiadomienia w tle działają prawidłowo!'
+    });
+    showToast('🚀 Wysłano testowe powiadomienie Push do chmury!');
+  } catch (e) {
+    console.log('Błąd testu chmury:', e);
   }
 }
 
@@ -1236,21 +1260,23 @@ function sendAppNotification(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
   try {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(reg => {
         reg.showNotification(title, {
           body,
-          icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2300e676"/><text x="50" y="65" font-size="50" text-anchor="middle">🐖</text></svg>',
-          badge: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2300e676"/><text x="50" y="65" font-size="50" text-anchor="middle">🐖</text></svg>',
-          vibrate: [200, 100, 200],
+          icon: './logo.jpg',
+          badge: './logo.jpg',
+          vibrate: [300, 100, 300, 100, 300],
+          data: { url: './index.html' },
           tag: 'farrowing-alert-' + Date.now(),
-          renotify: true
+          renotify: true,
+          requireInteraction: true
         });
       });
     } else {
       new Notification(title, {
         body,
-        icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2300e676"/><text x="50" y="65" font-size="50" text-anchor="middle">🐖</text></svg>'
+        icon: './logo.jpg'
       });
     }
   } catch (e) {
@@ -1258,7 +1284,75 @@ function sendAppNotification(title, body) {
   }
 }
 
+async function scheduleCloudBirthAlerts() {
+  if (!familyCode) return;
+  const cleanTopic = familyCode.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const alertTopic = `prosnosc_swin_${cleanTopic}`;
+  const now = new Date();
+
+  // Przejrzyj wszystkie ciężarne maciory i zaplanuj powiadomienia w chmurze
+  for (const sow of sows) {
+    if (!sow.coverageDate || (sow.status !== 'pregnant' && sow.status !== 'postawiona' && sow.status !== 'farrowing')) continue;
+
+    const covDate = new Date(sow.coverageDate + 'T00:00:00');
+    const farrowDate = addDays(covDate, sow.gestationDays || 114);
+    
+    // 1. Alert na 3 dni przed porodem o godz. 08:00 rano
+    const alert3Days = new Date(farrowDate);
+    alert3Days.setDate(alert3Days.getDate() - 3);
+    alert3Days.setHours(8, 0, 0, 0);
+
+    const diff3DaysSec = Math.floor((alert3Days - now) / 1000);
+    const key3Days = `cloud_alert_scheduled_${sow.id}_3days_${alert3Days.toISOString().split('T')[0]}`;
+
+    if (diff3DaysSec > 0 && diff3DaysSec < 30 * 24 * 3600 && !localStorage.getItem(key3Days)) {
+      try {
+        await fetch(`https://ntfy.sh/${alertTopic}`, {
+          method: 'POST',
+          headers: {
+            'Title': `🚨 Za 3 dni poród: ${sow.name}!`,
+            'Priority': 'urgent',
+            'Tags': 'pig,warning,alarm_clock',
+            'Delay': `${diff3DaysSec}s`,
+            'Click': window.location.href
+          },
+          body: `Maciora: ${sow.name} (Kojec: ${sow.pen || 'Brak'}). Planowany termin porodu to ${farrowDate.toLocaleDateString('pl-PL')}. Przygotuj porodówkę!`
+        });
+        localStorage.setItem(key3Days, '1');
+      } catch (e) {
+        console.log('Błąd harmonogramu powiadomień:', e);
+      }
+    }
+
+    // 2. Alert w dzień porodu o godz. 07:00 rano
+    const alert0Days = new Date(farrowDate);
+    alert0Days.setHours(7, 0, 0, 0);
+    const diff0DaysSec = Math.floor((alert0Days - now) / 1000);
+    const key0Days = `cloud_alert_scheduled_${sow.id}_0days_${alert0Days.toISOString().split('T')[0]}`;
+
+    if (diff0DaysSec > 0 && diff0DaysSec < 30 * 24 * 3600 && !localStorage.getItem(key0Days)) {
+      try {
+        await fetch(`https://ntfy.sh/${alertTopic}`, {
+          method: 'POST',
+          headers: {
+            'Title': `🚨 PORÓD DZISIAJ: ${sow.name}!`,
+            'Priority': 'urgent',
+            'Tags': 'pig,rotating_light,alarm_clock',
+            'Delay': `${diff0DaysSec}s`,
+            'Click': window.location.href
+          },
+          body: `Dziś przypada termin porodu maciory ${sow.name} (Kojec: ${sow.pen || 'Brak'})!`
+        });
+        localStorage.setItem(key0Days, '1');
+      } catch (e) {
+        console.log('Błąd harmonogramu powiadomień:', e);
+      }
+    }
+  }
+}
+
 function checkUpcomingFarrowingsAndNotify() {
+  scheduleCloudBirthAlerts();
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
   const today = new Date();

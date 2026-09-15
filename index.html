@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=73">
+  <link rel="stylesheet" href="styles.css?v=74">
 </head>
 <body>
 
@@ -131,9 +131,9 @@
 
         <!-- POWIADOMIENIA O PORODACH -->
         <div class="card" style="margin-bottom: 16px;">
-          <h2 class="card-title">🔔 Przypomnienia i Powiadomienia</h2>
+          <h2 class="card-title">🔔 Powiadomienia w Tle (Nawet przy zamkniętej aplikacji)</h2>
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px; margin-bottom: 14px;">
-            Aplikacja automatycznie wysyła powiadomienie na telefon i komputer, gdy do terminu wyproszenia maciory zostanie <strong>3 dni lub mniej</strong>.
+            Aplikacja automatycznie wysyła powiadomienie na telefon i komputer, gdy do terminu wyproszenia maciory zostanie <strong>3 dni lub mniej</strong> oraz w <strong>dzień porodu</strong> — nawet gdy aplikacja jest wyłączona, a telefon zablokowany!
           </p>
           <div style="display: flex; flex-direction: column; gap: 10px;">
             <button class="btn btn-primary" id="btn-enable-notifications">
@@ -141,8 +141,11 @@
               <span id="notif-btn-text">Włącz powiadomienia na telefonie</span>
             </button>
             <button class="btn btn-secondary" id="btn-test-notification">
-              <span>🧪 Wyślij testowe powiadomienie</span>
+              <span>🧪 Wyślij testowe powiadomienie Push</span>
             </button>
+          </div>
+          <div style="margin-top: 12px; padding: 10px; background: var(--bg-card-alt); border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;">
+            💡 <strong>Wskazówka:</strong> Aby powiadomienia przychodziły niezawodnie na zablokowany ekran, upewnij się, że połączyłeś się z <strong>Kodem Gospodarstwa</strong> (np. WENGLORZ) i zezwoliłeś na powiadomienia.
           </div>
         </div>
 
@@ -727,6 +730,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=73"></script>
+  <script src="app.js?v=74"></script>
 </body>
 </html>
