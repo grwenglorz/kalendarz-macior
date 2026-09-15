@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=74">
+  <link rel="stylesheet" href="styles.css?v=76">
 </head>
 <body>
 
@@ -131,21 +131,33 @@
 
         <!-- POWIADOMIENIA O PORODACH -->
         <div class="card" style="margin-bottom: 16px;">
-          <h2 class="card-title">🔔 Powiadomienia w Tle (Nawet przy zamkniętej aplikacji)</h2>
+          <h2 class="card-title">🔔 Powiadomienia o Porodach</h2>
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px; margin-bottom: 14px;">
-            Aplikacja automatycznie wysyła powiadomienie na telefon i komputer, gdy do terminu wyproszenia maciory zostanie <strong>3 dni lub mniej</strong> oraz w <strong>dzień porodu</strong> — nawet gdy aplikacja jest wyłączona, a telefon zablokowany!
+            Aplikacja wysyła przypomnienia na <strong>3 dni przed wyproszeniem</strong> oraz w <strong>dzień porodu</strong> (działa w tle nawet przy zamkniętej aplikacji).
           </p>
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button class="btn btn-primary" id="btn-enable-notifications">
-              <span id="notif-btn-icon">🔔</span>
-              <span id="notif-btn-text">Włącz powiadomienia na telefonie</span>
+          
+          <!-- STATUS POWIADOMIEŃ ORAZ PRZEŁĄCZNIK WŁĄCZ / WYŁĄCZ -->
+          <div id="notif-status-box" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card-alt); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; gap: 10px;">
+            <div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">Aktualny stan:</div>
+              <div id="notif-status-text" style="font-size: 1rem; font-weight: 900; color: var(--primary); margin-top: 2px;">
+                🟢 WŁĄCZONE
+              </div>
+            </div>
+            <button class="btn" id="btn-toggle-notifications" style="width: auto; padding: 8px 16px; font-weight: 800; font-size: 0.85rem; border-radius: 8px; cursor: pointer;">
+              <span id="notif-toggle-btn-icon">🔴</span>
+              <span id="notif-toggle-btn-text">Wyłącz</span>
             </button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
             <button class="btn btn-secondary" id="btn-test-notification">
               <span>🧪 Wyślij testowe powiadomienie Push</span>
             </button>
           </div>
+          
           <div style="margin-top: 12px; padding: 10px; background: var(--bg-card-alt); border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;">
-            💡 <strong>Wskazówka:</strong> Aby powiadomienia przychodziły niezawodnie na zablokowany ekran, upewnij się, że połączyłeś się z <strong>Kodem Gospodarstwa</strong> (np. WENGLORZ) i zezwoliłeś na powiadomienia.
+            💡 <strong>Wskazówka:</strong> Aby powiadomienia przychodziły niezawodnie na zablokowany ekran telefonu, upewnij się, że wpisałeś wspólny <strong>Kod Gospodarstwa</strong> (np. WENGLORZ) w chmurze powyżej.
           </div>
         </div>
 
@@ -730,6 +742,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=74"></script>
+  <script src="app.js?v=76"></script>
 </body>
 </html>

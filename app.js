@@ -1159,52 +1159,94 @@ function renderMenuStats() {
    POWIADOMIENIA O PORODACH (3 DNI PRZED)
    ========================================================================== */
 
+function isNotificationsEnabled() {
+  const pref = localStorage.getItem('prosnosc_swin_notif_enabled');
+  // Domyślnie włączone, chyba że użytkownik kliknął Wyłącz ('false')
+  return pref !== 'false';
+}
+
+function updateNotificationButtonState() {
+  const statusText = document.getElementById('notif-status-text');
+  const btnToggle = document.getElementById('btn-toggle-notifications');
+  const btnIcon = document.getElementById('notif-toggle-btn-icon');
+  const btnLabel = document.getElementById('notif-toggle-btn-text');
+
+  if (!btnToggle || !statusText) return;
+
+  const enabled = isNotificationsEnabled();
+
+  if (enabled) {
+    statusText.innerHTML = '🟢 WŁĄCZONE (Aktywne)';
+    statusText.style.color = 'var(--primary)';
+    if (btnIcon) btnIcon.textContent = '🔴';
+    if (btnLabel) btnLabel.textContent = 'Wyłącz';
+    btnToggle.className = 'btn btn-secondary btn-sm';
+    btnToggle.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+    btnToggle.style.borderColor = '#ef4444';
+    btnToggle.style.color = '#ef4444';
+  } else {
+    statusText.innerHTML = '⚪ WYŁĄCZONE (Nieaktywne)';
+    statusText.style.color = 'var(--text-muted)';
+    if (btnIcon) btnIcon.textContent = '🟢';
+    if (btnLabel) btnLabel.textContent = 'Włącz';
+    btnToggle.className = 'btn btn-primary btn-sm';
+    btnToggle.style.backgroundColor = 'var(--btn-primary-bg)';
+    btnToggle.style.borderColor = 'var(--btn-primary-bg)';
+    btnToggle.style.color = '#ffffff';
+  }
+}
+
 function setupNotificationListeners() {
-  const btnEnable = document.getElementById('btn-enable-notifications');
+  const btnToggle = document.getElementById('btn-toggle-notifications');
   const btnTest = document.getElementById('btn-test-notification');
 
   updateNotificationButtonState();
 
-  if (btnEnable) {
-    btnEnable.addEventListener('click', async () => {
-      if (!('Notification' in window)) {
-        showToast('Twoja przeglądarka nie obsługuje powiadomień.');
-        return;
-      }
+  if (btnToggle) {
+    btnToggle.addEventListener('click', async () => {
+      const isCurrentlyEnabled = isNotificationsEnabled();
 
-      try {
-        const permission = await Notification.requestPermission();
+      if (isCurrentlyEnabled) {
+        // WYŁĄCZAMY
+        localStorage.setItem('prosnosc_swin_notif_enabled', 'false');
         updateNotificationButtonState();
-        if (permission === 'granted') {
-          showToast('✅ Powiadomienia włączone!');
-          sendAppNotification('🔔 Powiadomienia włączone!', 'Będziesz otrzymywać przypomnienia na 3 dni przed porodem maciory (nawet przy zamkniętej aplikacji).');
-          checkUpcomingFarrowingsAndNotify();
-          scheduleCloudBirthAlerts();
-        } else if (permission === 'denied') {
-          showToast('Zezwolenie na powiadomienia zostało zablokowane w przeglądarce.');
+        showToast('🔕 Powiadomienia zostały WYŁĄCZONE.');
+      } else {
+        // WŁĄCZAMY
+        localStorage.setItem('prosnosc_swin_notif_enabled', 'true');
+        updateNotificationButtonState();
+        showToast('🔔 Powiadomienia zostały WŁĄCZONE!');
+
+        if ('Notification' in window && Notification.permission !== 'granted') {
+          try {
+            await Notification.requestPermission();
+          } catch (e) {
+            console.log('Błąd żądania uprawnień:', e);
+          }
         }
-      } catch (e) {
-        console.log('Błąd powiadomień:', e);
+
+        sendAppNotification('🔔 Powiadomienia włączone!', 'Będziesz otrzymywać przypomnienia o wyproszeniach macior.');
+        checkUpcomingFarrowingsAndNotify();
+        scheduleCloudBirthAlerts();
       }
     });
   }
 
   if (btnTest) {
-    btnTest.addEventListener('click', () => {
-      if (!('Notification' in window) || Notification.permission !== 'granted') {
-        Notification.requestPermission().then(p => {
-          if (p === 'granted') {
-            updateNotificationButtonState();
-            sendAppNotification('🚨 Test: Poród za 3 dni!', 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Przygotuj porodówkę.');
-            sendCloudTestAlert();
-          } else {
-            showToast('Musisz najpierw zezwolić na powiadomienia!');
-          }
-        });
-      } else {
-        sendAppNotification('🚨 Test: Poród za 3 dni!', 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Przygotuj porodówkę.');
-        sendCloudTestAlert();
+    btnTest.addEventListener('click', async () => {
+      if (!isNotificationsEnabled()) {
+        showToast('Powiadomienia są wyłączone. Włącz je najpierw przyciskiem obok!');
+        return;
       }
+
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        try {
+          await Notification.requestPermission();
+        } catch (e) {}
+      }
+
+      sendAppNotification('🚨 Test: Poród za 3 dni!', 'Maciora: Baśka (Kojec 2) ma planowany poród za 3 dni! Przygotuj porodówkę.');
+      sendCloudTestAlert();
     });
   }
 }
@@ -1229,35 +1271,8 @@ async function sendCloudTestAlert() {
   }
 }
 
-function updateNotificationButtonState() {
-  const btnText = document.getElementById('notif-btn-text');
-  const btnIcon = document.getElementById('notif-btn-icon');
-  const btnEnable = document.getElementById('btn-enable-notifications');
-
-  if (!btnText || !btnIcon || !btnEnable) return;
-
-  if (!('Notification' in window)) {
-    btnText.textContent = 'Powiadomienia niedostępne';
-    btnEnable.disabled = true;
-    return;
-  }
-
-  if (Notification.permission === 'granted') {
-    btnIcon.textContent = '✅';
-    btnText.textContent = 'Powiadomienia są włączone';
-    btnEnable.style.backgroundColor = '#166534';
-    btnEnable.style.borderColor = '#15803d';
-  } else if (Notification.permission === 'denied') {
-    btnIcon.textContent = '❌';
-    btnText.textContent = 'Powiadomienia zablokowane';
-  } else {
-    btnIcon.textContent = '🔔';
-    btnText.textContent = 'Włącz powiadomienia na telefonie';
-  }
-}
-
 function sendAppNotification(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!isNotificationsEnabled()) return;
 
   try {
     if ('serviceWorker' in navigator) {
@@ -1285,7 +1300,7 @@ function sendAppNotification(title, body) {
 }
 
 async function scheduleCloudBirthAlerts() {
-  if (!familyCode) return;
+  if (!familyCode || !isNotificationsEnabled()) return;
   const cleanTopic = familyCode.toLowerCase().replace(/[^a-z0-9]/g, '_');
   const alertTopic = `prosnosc_swin_${cleanTopic}`;
   const now = new Date();
@@ -1352,8 +1367,8 @@ async function scheduleCloudBirthAlerts() {
 }
 
 function checkUpcomingFarrowingsAndNotify() {
+  if (!isNotificationsEnabled()) return;
   scheduleCloudBirthAlerts();
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
