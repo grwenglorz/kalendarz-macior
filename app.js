@@ -20,9 +20,14 @@ function getOffsetDateString(daysOffset) {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadSowsData();
+  loadFarmTasks();
+  loadMachinesData();
+  loadMachineServicesData();
   initFieldsModule();
+  initMachinesModule();
   initFamilyCloudSync();
   setupNavigation();
+  setupFarmTaskListeners();
   setupCalculatorListeners();
   setupModalListeners();
   setupDataSyncListeners();
@@ -38,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateGestation();
   }
 
+  renderFarmDashboard();
+  renderMachinesStats();
+  renderMachinesList();
   renderSowsList();
   renderCalendarTimeline();
 });
@@ -80,18 +88,476 @@ let fields = [];
 let treatments = [];
 let customCrops = [];
 let deletedBaseCrops = [];
+let farmTasks = [];
+let machines = [];
+let machineServices = [];
+let currentMachineFilter = 'all';
+
+function loadMachinesData() {
+  const saved = localStorage.getItem('prosnosc_swin_machines');
+  if (saved) {
+    try {
+      machines = JSON.parse(saved);
+    } catch (e) {
+      machines = [];
+    }
+  } else {
+    // Domyślne przykładowe maszyny przy pierwszym uruchomieniu
+    machines = [
+      {
+        id: 'mach_1',
+        name: 'John Deere 6120M',
+        type: 'Ciągnik',
+        regNo: 'SR 4892A',
+        hours: 3450,
+        inspectionDate: getOffsetDateString(45),
+        lastOilHours: 3300,
+        oilInterval: 250,
+        notes: 'Główny ciągnik polowy',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'mach_2',
+        name: 'Ursus C-360',
+        type: 'Ciągnik',
+        regNo: 'SR 1102',
+        hours: 6820,
+        inspectionDate: getOffsetDateString(12),
+        lastOilHours: 6600,
+        oilInterval: 250,
+        notes: 'Do prac gospodarczych i ładowacza',
+        createdAt: new Date().toISOString()
+      }
+    ];
+    saveMachinesData(true);
+  }
+}
+
+function saveMachinesData(skipCloudPush = false) {
+  localStorage.setItem('prosnosc_swin_machines', JSON.stringify(machines));
+  if (!skipCloudPush && familyCode) {
+    pushFarmDataToCloud();
+  }
+  renderFarmDashboard();
+}
+
+function loadMachineServicesData() {
+  const saved = localStorage.getItem('prosnosc_swin_machine_services');
+  if (saved) {
+    try {
+      machineServices = JSON.parse(saved);
+    } catch (e) {
+      machineServices = [];
+    }
+  } else {
+    // Przykładowe wpisy serwisowe
+    machineServices = [
+      {
+        id: 'serv_1',
+        machineId: 'mach_1',
+        serviceType: 'Wymiana oleju i filtrów',
+        date: getOffsetDateString(-60),
+        hours: 3300,
+        cost: 650,
+        performedBy: 'Samodzielnie',
+        desc: 'Olej John Deere Plus-50 II 15W40, filtr oleju i paliwa',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'serv_2',
+        machineId: 'mach_2',
+        serviceType: 'Naprawa / Awaria',
+        date: getOffsetDateString(-25),
+        hours: 6790,
+        cost: 320,
+        performedBy: 'Warsztat',
+        desc: 'Wymiana pompy wody, nowy pasek klinowy',
+        createdAt: new Date().toISOString()
+      }
+    ];
+    saveMachineServicesData(true);
+  }
+}
+
+function saveMachineServicesData(skipCloudPush = false) {
+  localStorage.setItem('prosnosc_swin_machine_services', JSON.stringify(machineServices));
+  if (!skipCloudPush && familyCode) {
+    pushFarmDataToCloud();
+  }
+  renderFarmDashboard();
+}
+
+function loadFarmTasks() {
+  const saved = localStorage.getItem('prosnosc_swin_farm_tasks');
+  if (saved) {
+    try {
+      farmTasks = JSON.parse(saved);
+    } catch (e) {
+      farmTasks = [];
+    }
+  } else {
+    farmTasks = [
+      { id: 'task_1', title: 'Sprawdzenie maciory nr 12', due: 'Jutro', priority: 'urgent', icon: '📅' },
+      { id: 'task_2', title: 'Przegląd ciągnika', due: 'Za 3 dni', priority: 'planned', icon: '🔧' }
+    ];
+    saveFarmTasks(true);
+  }
+}
+
+function saveFarmTasks(skipCloudPush = false) {
+  localStorage.setItem('prosnosc_swin_farm_tasks', JSON.stringify(farmTasks));
+  if (!skipCloudPush && familyCode) {
+    pushFarmDataToCloud();
+  }
+  renderFarmDashboard();
+}
+
+function setupFarmTaskListeners() {
+  const modal = document.getElementById('farm-task-modal');
+  const btnClose = document.getElementById('btn-close-task-modal');
+  const form = document.getElementById('farm-task-form');
+
+  if (btnClose && modal) {
+    btnClose.onclick = () => modal.classList.remove('active');
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.classList.remove('active');
+    };
+  }
+
+  if (form) {
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const title = document.getElementById('task-title').value.trim();
+      const due = document.getElementById('task-due').value.trim();
+      const priority = document.getElementById('task-priority').value;
+      const icon = document.getElementById('task-icon').value;
+
+      if (!title) return;
+
+      const newTask = {
+        id: 'task_' + Date.now(),
+        title,
+        due,
+        priority,
+        icon,
+        createdAt: new Date().toISOString()
+      };
+
+      farmTasks.unshift(newTask);
+      saveFarmTasks();
+      form.reset();
+      if (modal) modal.classList.remove('active');
+      showToast('✅ Dodano zadanie do Pulpitu Gospodarstwa!');
+    };
+  }
+}
+
+function openFarmTaskModal() {
+  const modal = document.getElementById('farm-task-modal');
+  if (modal) {
+    const form = document.getElementById('farm-task-form');
+    if (form) form.reset();
+    modal.classList.add('active');
+  }
+}
+
+function deleteFarmTask(taskId) {
+  farmTasks = farmTasks.filter(t => t.id !== taskId);
+  saveFarmTasks();
+  showToast('Usunięto zadanie.');
+}
+
+function toggleFarmTask(taskId) {
+  const task = farmTasks.find(t => t.id === taskId);
+  if (task) {
+    task.completed = !task.completed;
+    saveFarmTasks();
+    showToast(task.completed ? '🎉 Oznaczono zadanie jako zrobione!' : 'Przywrócono zadanie.');
+  }
+}
+
+function renderFarmDashboard() {
+  const container = document.getElementById('farm-dashboard-container');
+  if (!container) return;
+
+  const now = new Date();
+  const days = ['NIEDZIELA', 'PONIEDZIAŁEK', 'WTOREK', 'ŚRODA', 'CZWARTEK', 'PIĄTEK', 'SOBOTA'];
+  const months = ['STYCZNIA', 'LUTEGO', 'MARCA', 'KWIETNIA', 'MAJA', 'CZERWCA', 'LIPCA', 'SIERPNIA', 'WRZEŚNIA', 'PAŹDZIERNIKA', 'LISTOPADA', 'GRUDNIA'];
+  const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+  // 1. Liczba świń
+  const totalSows = sows.length;
+
+  // 2. Powierzchnia pól
+  let totalArea = 0;
+  if (Array.isArray(fields)) {
+    totalArea = fields.reduce((sum, f) => sum + (parseFloat(f.areaHa) || 0), 0);
+  }
+  const areaFormatted = totalArea > 0 ? (totalArea.toFixed(2).replace(/\.00$/, '')) : '0';
+
+  // 3. Najbliższy poród
+  let closestSow = null;
+  let minDays = Infinity;
+  sows.filter(s => s.status === 'pregnant' || s.status === 'postawiona' || s.status === 'farrowing').forEach(s => {
+    if (!s.coverageDate) return;
+    const d = calculateDaysRemaining(s.coverageDate, s.gestationDays);
+    if (d >= 0 && d < minDays) {
+      minDays = d;
+      closestSow = s;
+    }
+  });
+
+  let nearestFarrowValue = '–';
+  let nearestFarrowSub = 'Brak w najbliższych dniach';
+  if (closestSow) {
+    nearestFarrowValue = minDays === 0 ? 'Dzisiaj!' : `${minDays} dni`;
+    nearestFarrowSub = `${escapeHTML(closestSow.name)}${closestSow.pen ? ` (${escapeHTML(closestSow.pen)})` : ''}`;
+  }
+
+  // 4. Zadania automatyczne z rejestru macior (wyproszenia do 7 dni)
+  const autoTasks = [];
+  sows.filter(s => s.status === 'pregnant' || s.status === 'postawiona' || s.status === 'farrowing').forEach(s => {
+    if (!s.coverageDate) return;
+    const d = calculateDaysRemaining(s.coverageDate, s.gestationDays);
+    if (d >= 0 && d <= 7) {
+      autoTasks.push({
+        id: 'auto_sow_' + s.id,
+        isAuto: true,
+        sowId: s.id,
+        icon: '🐖',
+        title: `Poród maciory: ${s.name}${s.pen ? ` (Kojec ${s.pen})` : ''}`,
+        due: d === 0 ? 'Dzisiaj!' : (d === 1 ? 'Jutro' : `Za ${d} dni`),
+        priority: d <= 3 ? 'urgent' : 'planned',
+        days: d
+      });
+    }
+  });
+  // Auto zadania dla maszyn (przeglądy techniczne i wymiany oleju)
+  if (Array.isArray(machines)) {
+    machines.forEach(m => {
+      if (m.inspectionDate) {
+        const inspDate = new Date(m.inspectionDate + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const daysLeft = Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24));
+        if (daysLeft <= 30) {
+          autoTasks.push({
+            id: 'auto_mach_insp_' + m.id,
+            isAuto: true,
+            isMachine: true,
+            machineId: m.id,
+            icon: '🚜',
+            title: `Przegląd techniczny: ${m.name}${m.regNo ? ` (${m.regNo})` : ''}`,
+            due: daysLeft < 0 ? `Po terminie (${Math.abs(daysLeft)} dni temu)!` : (daysLeft === 0 ? 'Dzisiaj!' : `Za ${daysLeft} dni`),
+            priority: daysLeft <= 7 ? 'urgent' : 'planned',
+            days: daysLeft
+          });
+        }
+      }
+      if (m.hours != null && m.lastOilHours != null && m.oilInterval) {
+        const nextOil = (parseInt(m.lastOilHours) || 0) + (parseInt(m.oilInterval) || 250);
+        const remHours = nextOil - (parseInt(m.hours) || 0);
+        if (remHours <= 20) {
+          autoTasks.push({
+            id: 'auto_mach_oil_' + m.id,
+            isAuto: true,
+            isMachine: true,
+            machineId: m.id,
+            icon: '🛢️',
+            title: `Wymiana oleju: ${m.name}`,
+            due: remHours <= 0 ? `Pilne! Przekroczono o ${Math.abs(remHours)} Mth` : `Za ${remHours} Mth`,
+            priority: remHours <= 10 ? 'urgent' : 'planned',
+            days: remHours <= 0 ? -1 : 5
+          });
+        }
+      }
+    });
+  }
+
+  autoTasks.sort((a, b) => a.days - b.days);
+
+  // Połącz automatyczne zadania i zadania własne (nieukończone)
+  const activeCustomTasks = farmTasks.filter(t => !t.completed);
+  const allTasks = [...autoTasks, ...activeCustomTasks];
+  const urgentCount = allTasks.filter(t => t.priority === 'urgent' || t.due === 'Dzisiaj!' || t.due === 'Jutro').length;
+
+  const isOnline = Boolean(familyCode);
+  const onlineBadgeHtml = isOnline
+    ? `<span class="dashboard-online-badge">ONLINE</span>`
+    : `<span class="dashboard-online-badge offline">LOKALNIE</span>`;
+
+  container.innerHTML = `
+    <div class="farm-dashboard">
+      <div class="dashboard-top">
+        <div class="dashboard-title-group">
+          <h2>GOSPODARSTWO</h2>
+          <div class="dashboard-date">${dateStr}</div>
+        </div>
+        <div>
+          ${onlineBadgeHtml}
+        </div>
+      </div>
+
+      <!-- SIATKA 4 KAFELKÓW (ZGODNIE ZE ZDJĘCIEM) -->
+      <div class="dashboard-grid">
+        <!-- 1. Liczba świń -->
+        <div class="dashboard-stat-box" id="dash-stat-pigs" title="Przejdź do rejestru świń">
+          <div class="dashboard-stat-label">Liczba świń</div>
+          <div class="dashboard-stat-value">${totalSows}</div>
+          <div class="dashboard-stat-sub">Wszystkie grupy</div>
+        </div>
+
+        <!-- 2. Powierzchnia pól -->
+        <div class="dashboard-stat-box" id="dash-stat-fields" title="Przejdź do modułu pól">
+          <div class="dashboard-stat-label">Powierzchnia pól</div>
+          <div class="dashboard-stat-value">${areaFormatted} ha</div>
+          <div class="dashboard-stat-sub">${fields.length} ${fields.length === 1 ? 'działka' : (fields.length >= 2 && fields.length <= 4 ? 'działki' : 'działek')}</div>
+        </div>
+
+        <!-- 3. Zadania na dziś -->
+        <div class="dashboard-stat-box" id="dash-stat-tasks" title="Zobacz zadania poniżej">
+          <div class="dashboard-stat-label">Zadania na dziś</div>
+          <div class="dashboard-stat-value" style="color:var(--accent-gold);">${urgentCount}</div>
+          <div class="dashboard-stat-sub" style="color:var(--accent-gold);">Do wykonania</div>
+        </div>
+
+        <!-- 4. Najbliższy poród -->
+        <div class="dashboard-stat-box" id="dash-stat-farrow" title="Zobacz najbliższe wyproszenie">
+          <div class="dashboard-stat-label">Najbliższy poród</div>
+          <div class="dashboard-stat-value" style="color:${minDays <= 3 ? 'var(--accent-red)' : 'var(--primary)'};">${nearestFarrowValue}</div>
+          <div class="dashboard-stat-sub" style="color:${minDays <= 3 ? 'var(--accent-red)' : 'var(--text-secondary)'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${nearestFarrowSub}
+          </div>
+        </div>
+      </div>
+
+      <!-- SEKCJA: NAJBLIŻSZE ZADANIA -->
+      <div class="dashboard-tasks-card">
+        <div class="dashboard-tasks-header">
+          <div class="dashboard-tasks-title">NAJBLIŻSZE ZADANIA</div>
+          <button class="btn btn-sm btn-primary" id="btn-dashboard-add-task" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; cursor:pointer;">
+            ➕ Zadanie
+          </button>
+        </div>
+
+        <div id="dashboard-tasks-list" style="display:flex; flex-direction:column;">
+          ${allTasks.length === 0 ? `
+            <div style="font-size:0.8rem; color:var(--text-muted); padding:10px 0; text-align:center;">
+              Brak pilnych zadań. Kliknij <strong>➕ Zadanie</strong>, aby zapisać przypomnienie!
+            </div>
+          ` : allTasks.map(t => {
+            const isUrgent = t.priority === 'urgent' || t.due === 'Dzisiaj!' || t.due === 'Jutro';
+            const badgeClass = isUrgent ? 'badge-urgent' : 'badge-planned';
+            const badgeText = isUrgent ? 'Pilne' : 'Planowane';
+
+            return `
+              <div class="dashboard-task-item" data-task-id="${t.id}">
+                <div class="dashboard-task-left">
+                  <div class="dashboard-task-icon">${t.icon || '📅'}</div>
+                  <div class="dashboard-task-info">
+                    <div class="dashboard-task-title">${escapeHTML(t.title)}</div>
+                    <div class="dashboard-task-time">${escapeHTML(t.due)}</div>
+                  </div>
+                </div>
+                <div class="dashboard-task-right">
+                  <span class="${badgeClass}">${badgeText}</span>
+                  ${t.isMachine ? `
+                    <button class="btn btn-sm btn-secondary btn-dash-open-mach" data-mach-id="${t.machineId}" title="Zobacz maszynę" style="padding:3px 6px; font-size:0.72rem; border-radius:6px;">
+                      👁️
+                    </button>
+                  ` : (t.isAuto ? `
+                    <button class="btn btn-sm btn-secondary btn-dash-open-sow" data-sow-id="${t.sowId}" title="Zobacz maciorę" style="padding:3px 6px; font-size:0.72rem; border-radius:6px;">
+                      👁️
+                    </button>
+                  ` : `
+                    <button class="btn btn-sm btn-secondary btn-dash-done-task" data-task-id="${t.id}" title="Oznacz jako wykonane" style="padding:3px 6px; font-size:0.75rem; color:var(--primary); border-radius:6px;">
+                      ✓
+                    </button>
+                    <button class="btn btn-sm btn-secondary btn-dash-del-task" data-task-id="${t.id}" title="Usuń zadanie" style="padding:3px 6px; font-size:0.72rem; color:var(--accent-red); border-radius:6px;">
+                      🗑️
+                    </button>
+                  `)}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Podpięcia kliknięć w statystykach
+  document.getElementById('dash-stat-pigs')?.addEventListener('click', () => switchScreen('pigs'));
+  document.getElementById('dash-stat-fields')?.addEventListener('click', () => switchScreen('fields'));
+  document.getElementById('dash-stat-tasks')?.addEventListener('click', () => {
+    document.querySelector('.dashboard-tasks-card')?.scrollIntoView({ behavior: 'smooth' });
+  });
+  document.getElementById('dash-stat-farrow')?.addEventListener('click', () => {
+    if (closestSow) {
+      switchScreen('pigs');
+      openSowModal(closestSow);
+    } else {
+      switchScreen('pigs');
+    }
+  });
+
+  // Dodawanie zadania
+  document.getElementById('btn-dashboard-add-task')?.addEventListener('click', () => {
+    openFarmTaskModal();
+  });
+
+  // Interakcje z zadaniami
+  container.querySelectorAll('.btn-dash-open-mach').forEach(btn => {
+    btn.onclick = () => {
+      switchScreen('machines');
+    };
+  });
+
+  container.querySelectorAll('.btn-dash-open-sow').forEach(btn => {
+    btn.onclick = () => {
+      const sId = btn.dataset.sowId;
+      const s = sows.find(item => item.id === sId);
+      if (s) {
+        switchScreen('pigs');
+        openSowModal(s);
+      }
+    };
+  });
+
+  container.querySelectorAll('.btn-dash-done-task').forEach(btn => {
+    btn.onclick = () => {
+      const tId = btn.dataset.taskId;
+      toggleFarmTask(tId);
+    };
+  });
+
+  container.querySelectorAll('.btn-dash-del-task').forEach(btn => {
+    btn.onclick = () => {
+      const tId = btn.dataset.taskId;
+      deleteFarmTask(tId);
+    };
+  });
+}
 
 function setupLobbyNavigation() {
   const btnOpenPigs = document.getElementById('btn-open-pigs');
+  const btnOpenMachines = document.getElementById('btn-open-machines');
   const btnOpenFields = document.getElementById('btn-open-fields');
   const btnOpenSettings = document.getElementById('btn-open-settings');
   const btnBackLobby = document.getElementById('btn-back-lobby');
+  const btnBackLobbyMachines = document.getElementById('btn-back-lobby-machines');
   const btnBackLobbyFields = document.getElementById('btn-back-lobby-fields');
   const btnBackLobbySettings = document.getElementById('btn-back-lobby-settings');
 
   if (btnOpenPigs) {
     btnOpenPigs.addEventListener('click', () => {
       switchScreen('pigs');
+    });
+  }
+
+  if (btnOpenMachines) {
+    btnOpenMachines.addEventListener('click', () => {
+      switchScreen('machines');
     });
   }
 
@@ -113,6 +579,12 @@ function setupLobbyNavigation() {
     });
   }
 
+  if (btnBackLobbyMachines) {
+    btnBackLobbyMachines.addEventListener('click', () => {
+      switchScreen('lobby');
+    });
+  }
+
   if (btnBackLobbyFields) {
     btnBackLobbyFields.addEventListener('click', () => {
       switchScreen('lobby');
@@ -129,11 +601,13 @@ function setupLobbyNavigation() {
 function switchScreen(screenName) {
   const screenLobby = document.getElementById('screen-lobby');
   const screenPigs = document.getElementById('screen-pigs');
+  const screenMachines = document.getElementById('screen-machines');
   const screenFields = document.getElementById('screen-fields');
   const screenSettings = document.getElementById('screen-settings');
 
   if (screenLobby) screenLobby.classList.remove('active');
   if (screenPigs) screenPigs.classList.remove('active');
+  if (screenMachines) screenMachines.classList.remove('active');
   if (screenFields) screenFields.classList.remove('active');
   if (screenSettings) screenSettings.classList.remove('active');
 
@@ -142,6 +616,10 @@ function switchScreen(screenName) {
     renderMenuStats();
     renderSowsList();
     renderCalendarTimeline();
+  } else if (screenName === 'machines') {
+    if (screenMachines) screenMachines.classList.add('active');
+    renderMachinesStats();
+    renderMachinesList();
   } else if (screenName === 'fields') {
     if (screenFields) screenFields.classList.add('active');
     renderFieldsStats();
@@ -151,6 +629,7 @@ function switchScreen(screenName) {
     if (screenSettings) screenSettings.classList.add('active');
   } else {
     if (screenLobby) screenLobby.classList.add('active');
+    renderFarmDashboard();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -286,6 +765,7 @@ function saveSowsData(skipCloudPush = false) {
     pushFarmDataToCloud();
     scheduleCloudBirthAlerts();
   }
+  renderFarmDashboard();
 }
 
 function initFamilyCloudSync() {
@@ -340,6 +820,7 @@ function connectFamilyCloud(code, isUserInitiated = false) {
 function updateCloudStatusBadge(isConnected) {
   const badges = [
     document.getElementById('cloud-status-badge'),
+    document.getElementById('cloud-status-badge-machines'),
     document.getElementById('cloud-status-badge-fields'),
     document.getElementById('cloud-status-badge-lobby'),
     document.getElementById('cloud-status-badge-settings')
@@ -372,6 +853,8 @@ function updateCloudStatusBadge(isConnected) {
       };
     }
   });
+
+  renderFarmDashboard();
 }
 
 async function pushFarmDataToCloud() {
@@ -385,10 +868,13 @@ async function pushFarmDataToCloud() {
       version: 2,
       timestamp: Date.now(),
       sows: sows,
+      machines: machines,
+      machineServices: machineServices,
       fields: fields,
       treatments: treatments,
       customCrops: customCrops,
-      deletedBaseCrops: deletedBaseCrops
+      deletedBaseCrops: deletedBaseCrops,
+      farmTasks: farmTasks
     };
 
     await fetch(url, {
@@ -396,7 +882,7 @@ async function pushFarmDataToCloud() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    console.log('Wysłano pełne dane gospodarstwa (maciory + pola + uprawy) do chmury.');
+    console.log('Wysłano pełne dane gospodarstwa (maciory + maszyny + pola + uprawy + zadania) do chmury.');
   } catch (err) {
     console.log('Błąd wysyłania do chmury:', err);
   }
@@ -472,6 +958,24 @@ function applyRemoteSyncData(dataObj, showToastNotice = false) {
         changed = true;
       }
     }
+    if (Array.isArray(dataObj.machines)) {
+      if (JSON.stringify(dataObj.machines) !== JSON.stringify(machines)) {
+        machines = dataObj.machines;
+        saveMachinesData(true);
+        renderMachinesStats();
+        renderMachinesList();
+        changed = true;
+      }
+    }
+    if (Array.isArray(dataObj.machineServices)) {
+      if (JSON.stringify(dataObj.machineServices) !== JSON.stringify(machineServices)) {
+        machineServices = dataObj.machineServices;
+        saveMachineServicesData(true);
+        renderMachinesStats();
+        renderMachinesList();
+        changed = true;
+      }
+    }
     if (Array.isArray(dataObj.fields)) {
       if (JSON.stringify(dataObj.fields) !== JSON.stringify(fields)) {
         fields = dataObj.fields;
@@ -507,6 +1011,13 @@ function applyRemoteSyncData(dataObj, showToastNotice = false) {
         changed = true;
       }
     }
+    if (Array.isArray(dataObj.farmTasks)) {
+      if (JSON.stringify(dataObj.farmTasks) !== JSON.stringify(farmTasks)) {
+        farmTasks = dataObj.farmTasks;
+        saveFarmTasks(true);
+        changed = true;
+      }
+    }
   } else if (Array.isArray(dataObj)) {
     // Starszy format: sama tablica macior
     const cleanRemote = dataObj.filter(s => s.id && !s.id.startsWith('sow_demo_'));
@@ -518,6 +1029,10 @@ function applyRemoteSyncData(dataObj, showToastNotice = false) {
       renderMenuStats();
       changed = true;
     }
+  }
+
+  if (changed) {
+    renderFarmDashboard();
   }
 
   if (changed && showToastNotice) {
@@ -900,9 +1415,12 @@ function setupDataSyncListeners() {
         exportedAt: new Date().toISOString(),
         familyCode: familyCode || '',
         sows: sows,
+        machines: machines,
+        machineServices: machineServices,
         fields: fields,
         treatments: treatments,
-        customCrops: customCrops
+        customCrops: customCrops,
+        farmTasks: farmTasks
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullFarmBackup, null, 2));
       const downloadAnchor = document.createElement('a');
@@ -911,7 +1429,7 @@ function setupDataSyncListeners() {
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
-      showToast('💾 Pobrano pełną bazę gospodarstwa (maciory + pola + uprawy)!');
+      showToast('💾 Pobrano pełną bazę gospodarstwa (maciory + maszyny + pola + uprawy + zadania)!');
     });
   }
 
@@ -934,6 +1452,14 @@ function setupDataSyncListeners() {
               renderCalendarTimeline();
               renderMenuStats();
             }
+            if (Array.isArray(imported.machines)) {
+              machines = imported.machines;
+              saveMachinesData();
+            }
+            if (Array.isArray(imported.machineServices)) {
+              machineServices = imported.machineServices;
+              saveMachineServicesData();
+            }
             if (Array.isArray(imported.fields)) {
               fields = imported.fields;
               saveFieldsData();
@@ -949,9 +1475,16 @@ function setupDataSyncListeners() {
               customCrops = imported.customCrops;
               saveCustomCrops();
             }
+            if (Array.isArray(imported.farmTasks)) {
+              farmTasks = imported.farmTasks;
+              saveFarmTasks();
+            }
             if (imported.familyCode) {
               connectFamilyCloud(imported.familyCode, true);
             }
+            renderMachinesStats();
+            renderMachinesList();
+            renderFarmDashboard();
             showToast('✅ Pomyślnie wczytano całą bazę gospodarstwa!');
           } else if (Array.isArray(imported)) {
             // Starszy format z samą listą macior
@@ -1735,6 +2268,7 @@ function saveFieldsData(skipCloudPush = false) {
   renderFieldsList();
   renderTreatmentsList();
   renderUniqueSpraysRecords();
+  renderFarmDashboard();
   if (!skipCloudPush && familyCode) {
     pushFarmDataToCloud();
   }
@@ -3582,6 +4116,659 @@ function closeFieldHistoryModal() {
   if (modal) modal.classList.remove('active');
   activeHistoryFieldId = null;
 }
+
+/* ==========================================================================
+   MODUŁ: MASZYNY I SPRZĘT (TRACTORS, EQUIPMENT, MOTOHOURS, SERVICE & COSTS)
+   ========================================================================== */
+
+function initMachinesModule() {
+  const btnAdd = document.getElementById('btn-add-machine');
+  if (btnAdd) {
+    btnAdd.addEventListener('click', () => openMachineModal());
+  }
+
+  // Wyszukiwarka maszyn
+  const searchInput = document.getElementById('machine-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => renderMachinesList());
+  }
+
+  // Filtry kategorii sprzętu
+  const filterChips = document.querySelectorAll('#machine-filter-chips .chip');
+  filterChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      filterChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentMachineFilter = chip.dataset.machineFilter || 'all';
+      renderMachinesList();
+    });
+  });
+
+  // Modal maszyny
+  const machineModal = document.getElementById('machine-modal');
+  const btnCloseMachine = document.getElementById('btn-close-machine-modal');
+  const machineForm = document.getElementById('machine-form');
+
+  if (btnCloseMachine) {
+    btnCloseMachine.addEventListener('click', closeMachineModal);
+  }
+  if (machineModal) {
+    machineModal.addEventListener('click', (e) => {
+      if (e.target === machineModal) closeMachineModal();
+    });
+  }
+  if (machineForm) {
+    machineForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveMachineFromModal();
+    });
+  }
+
+  // Modal serwisu / naprawy
+  const serviceModal = document.getElementById('machine-service-modal');
+  const btnCloseService = document.getElementById('btn-close-service-modal');
+  const serviceForm = document.getElementById('machine-service-form');
+
+  if (btnCloseService) {
+    btnCloseService.addEventListener('click', closeMachineServiceModal);
+  }
+  if (serviceModal) {
+    serviceModal.addEventListener('click', (e) => {
+      if (e.target === serviceModal) closeMachineServiceModal();
+    });
+  }
+  if (serviceForm) {
+    serviceForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveMachineServiceFromModal();
+    });
+  }
+
+  // Modal szybkiej aktualizacji motogodzin
+  const mthModal = document.getElementById('machine-update-mth-modal');
+  const btnCloseMth = document.getElementById('btn-close-mth-modal');
+  const mthForm = document.getElementById('machine-update-mth-form');
+
+  if (btnCloseMth) {
+    btnCloseMth.addEventListener('click', closeUpdateMthModal);
+  }
+  if (mthModal) {
+    mthModal.addEventListener('click', (e) => {
+      if (e.target === mthModal) closeUpdateMthModal();
+    });
+  }
+  if (mthForm) {
+    mthForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveMthFromModal();
+    });
+  }
+}
+
+function renderMachinesStats() {
+  const countEl = document.getElementById('stats-machines-count');
+  const dueEl = document.getElementById('stats-machines-due');
+  const costEl = document.getElementById('stats-machines-repairs-cost');
+
+  if (countEl) countEl.textContent = machines.length;
+
+  let dueCount = 0;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  machines.forEach(m => {
+    let isDue = false;
+    // Sprawdź przegląd
+    if (m.inspectionDate) {
+      const inspDate = new Date(m.inspectionDate + 'T00:00:00');
+      const diffDays = Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 30) isDue = true;
+    }
+    // Sprawdź olej
+    if (m.hours != null && m.lastOilHours != null && m.oilInterval) {
+      const nextOil = (parseInt(m.lastOilHours) || 0) + (parseInt(m.oilInterval) || 250);
+      const remHours = nextOil - (parseInt(m.hours) || 0);
+      if (remHours <= 20) isDue = true;
+    }
+    if (isDue) dueCount++;
+  });
+
+  if (dueEl) {
+    dueEl.textContent = dueCount;
+    dueEl.style.color = dueCount > 0 ? 'var(--accent-red)' : 'var(--primary)';
+  }
+
+  // Łączny koszt serwisów i napraw
+  const totalCost = machineServices.reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
+  if (costEl) {
+    costEl.textContent = totalCost > 0 ? `${totalCost.toLocaleString('pl-PL')} zł` : '0 zł';
+  }
+}
+
+function getMachineIcon(type) {
+  switch (type) {
+    case 'Ciągnik': return '🚜';
+    case 'Kombajn': return '🌾';
+    case 'Opryskiwacz': return '🧪';
+    case 'Maszyna': return '⚙️';
+    case 'Przyczepa': return '🚛';
+    case 'Ładowarka': return '🏗️';
+    default: return '📋';
+  }
+}
+
+function renderMachinesList() {
+  const container = document.getElementById('machines-container');
+  if (!container) return;
+
+  const searchQuery = (document.getElementById('machine-search-input')?.value || '').toLowerCase().trim();
+
+  let filtered = machines.filter(m => {
+    // Filtrowanie po tekście
+    const matchSearch = (m.name && m.name.toLowerCase().includes(searchQuery)) ||
+                        (m.regNo && m.regNo.toLowerCase().includes(searchQuery)) ||
+                        (m.notes && m.notes.toLowerCase().includes(searchQuery));
+    if (!matchSearch) return false;
+
+    // Filtrowanie po typie
+    if (currentMachineFilter === 'all') return true;
+    return m.type === currentMachineFilter;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 30px 14px; text-align: center;">
+        <div class="empty-icon" style="font-size: 2.5rem; margin-bottom: 10px;">🚜</div>
+        <h3 style="font-size: 1.1rem; font-weight: 800; margin-bottom: 6px;">Brak maszyn w wykazie</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); max-width: 320px; margin: 0 auto 16px auto;">
+          Dodaj swoje ciągniki i maszyny rolnicze, aby kontrolować motogodziny, terminy wymiany oleju i koszty napraw!
+        </p>
+        <button class="btn btn-primary" onclick="openMachineModal()" style="width: auto; padding: 8px 18px; margin: 0 auto;">
+          ➕ Dodaj Pierwszą Maszynę
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  let html = '';
+  filtered.forEach(m => {
+    const icon = getMachineIcon(m.type);
+    const hours = parseInt(m.hours) || 0;
+    const lastOil = parseInt(m.lastOilHours) || 0;
+    const interval = parseInt(m.oilInterval) || 250;
+    const nextOilHours = lastOil + interval;
+    const oilRemaining = nextOilHours - hours;
+
+    // Procent zużycia oleju
+    const oilElapsed = Math.max(0, hours - lastOil);
+    const oilPercent = Math.min(100, Math.round((oilElapsed / interval) * 100));
+
+    let oilColor = '#22c55e';
+    let oilStatusText = '';
+    if (oilRemaining <= 0) {
+      oilColor = '#ef4444';
+      oilStatusText = `🚨 Wymień olej! (Przekroczono o ${Math.abs(oilRemaining)} Mth)`;
+    } else if (oilRemaining <= 25) {
+      oilColor = '#eab308';
+      oilStatusText = `⚠️ Zbliża się wymiana (za ${oilRemaining} Mth)`;
+    } else {
+      oilStatusText = `✅ Za ${oilRemaining} Mth (przy ${nextOilHours} Mth)`;
+    }
+
+    // Przegląd techniczny / OC
+    let inspStatusText = 'Brak terminu';
+    let inspColor = 'var(--text-secondary)';
+    let inspDaysLeft = null;
+
+    if (m.inspectionDate) {
+      const inspDate = new Date(m.inspectionDate + 'T00:00:00');
+      inspDaysLeft = Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24));
+      const formattedDate = inspDate.toLocaleDateString('pl-PL', { day: 'numeric', month: 'numeric', year: 'numeric' });
+
+      if (inspDaysLeft < 0) {
+        inspColor = '#ef4444';
+        inspStatusText = `🚨 Minął ${Math.abs(inspDaysLeft)} dni temu (${formattedDate})`;
+      } else if (inspDaysLeft === 0) {
+        inspColor = '#ef4444';
+        inspStatusText = `🚨 TERMIN DZISIAJ! (${formattedDate})`;
+      } else if (inspDaysLeft <= 30) {
+        inspColor = '#eab308';
+        inspStatusText = `⚠️ Za ${inspDaysLeft} dni (${formattedDate})`;
+      } else {
+        inspColor = 'var(--heading-color)';
+        inspStatusText = `📅 ${formattedDate} (za ${inspDaysLeft} dni)`;
+      }
+    }
+
+    // Usługi dla tej maszyny
+    const services = machineServices
+      .filter(s => s.machineId === m.id)
+      .sort((a,b) => new Date(b.date) - new Date(a.date));
+    const machTotalCost = services.reduce((sum, s) => sum + (parseFloat(s.cost) || 0), 0);
+
+    html += `
+      <div class="machine-card" data-machine-id="${m.id}">
+        <!-- NAGŁÓWEK KARTY -->
+        <div class="machine-card-header">
+          <div>
+            <div class="machine-title-row">
+              <span style="font-size: 1.3rem;">${icon}</span>
+              <h3 class="machine-title">${escapeHTML(m.name)}</h3>
+              <span class="machine-type-badge">${escapeHTML(m.type || 'Maszyna')}</span>
+              ${m.regNo ? `<span class="machine-reg-badge">${escapeHTML(m.regNo)}</span>` : ''}
+            </div>
+            ${m.notes ? `<div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">📝 ${escapeHTML(m.notes)}</div>` : ''}
+          </div>
+
+          <div class="machine-actions">
+            <button class="icon-btn btn-mach-quick-mth" data-id="${m.id}" title="Szybka aktualizacja motogodzin" style="width:34px; height:34px; font-size:0.9rem; color:var(--primary);">
+              ⏱️
+            </button>
+            <button class="icon-btn btn-mach-add-service" data-id="${m.id}" title="Dodaj naprawę lub wymianę oleju" style="width:34px; height:34px; font-size:0.9rem;">
+              🛠️
+            </button>
+            <button class="icon-btn btn-mach-edit" data-id="${m.id}" title="Edytuj maszynę" style="width:34px; height:34px; font-size:0.9rem;">
+              ✏️
+            </button>
+            <button class="icon-btn btn-mach-del" data-id="${m.id}" title="Usuń maszynę" style="width:34px; height:34px; font-size:0.9rem; color:var(--accent-red);">
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <!-- SIATKA STATUSÓW MASZYNY -->
+        <div class="machine-stats-grid">
+          <!-- Licznik motogodzin -->
+          <div class="machine-stat-box" style="border-left: 3px solid var(--primary);">
+            <div class="machine-stat-label">Licznik motogodzin</div>
+            <div class="machine-stat-value" style="color:var(--primary); font-size:1.15rem; display:flex; align-items:center; justify-content:space-between;">
+              <span>${hours} Mth</span>
+              <button class="icon-btn btn-mach-quick-mth" data-id="${m.id}" title="Zaktualizuj licznik" style="width:24px; height:24px; font-size:0.75rem; border:none; background:none;">✏️</button>
+            </div>
+          </div>
+
+          <!-- Wymiana oleju i filtrów -->
+          <div class="machine-stat-box" style="border-left: 3px solid ${oilColor};">
+            <div class="machine-stat-label">Wymiana oleju</div>
+            <div class="machine-stat-value" style="font-size:0.88rem; color:${oilColor}; font-weight:800;">
+              ${oilStatusText}
+            </div>
+            <div class="machine-progress-bar" title="Zużycie oleju: ${oilPercent}%">
+              <div class="machine-progress-fill" style="width: ${oilPercent}%; background: ${oilColor};"></div>
+            </div>
+          </div>
+
+          <!-- Przegląd techniczny / OC -->
+          <div class="machine-stat-box" style="border-left: 3px solid ${inspColor};">
+            <div class="machine-stat-label">Przegląd techniczny / OC</div>
+            <div class="machine-stat-value" style="font-size:0.85rem; color:${inspColor};">
+              ${inspStatusText}
+            </div>
+          </div>
+
+          <!-- Koszty napraw i serwisu -->
+          <div class="machine-stat-box">
+            <div class="machine-stat-label">Koszty serwisu</div>
+            <div class="machine-stat-value" style="font-size:0.95rem; color:var(--heading-color);">
+              ${machTotalCost > 0 ? `${machTotalCost.toLocaleString('pl-PL')} zł` : '0 zł'}
+              <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;"> (${services.length})</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRZYCISK: SZYBKIE AKCJE -->
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-sm btn-secondary btn-mach-quick-mth" data-id="${m.id}" style="padding:5px 10px; font-size:0.78rem; font-weight:700;">
+            ⏱️ Zmień Mth
+          </button>
+          <button class="btn btn-sm btn-primary btn-mach-add-service" data-id="${m.id}" style="padding:5px 12px; font-size:0.78rem; font-weight:700;">
+            🛠️ Dodaj Serwis / Naprawę
+          </button>
+        </div>
+
+        <!-- SEKCJA ROZWIJANA: HISTORIA SERWISU I NAPRAW -->
+        <div class="machine-services-section">
+          <button type="button" class="machine-services-toggle" data-target="services-list-${m.id}">
+            <span>📜 Historia napraw i wymian oleju (${services.length})</span>
+            <span class="services-toggle-arrow">▼</span>
+          </button>
+
+          <div id="services-list-${m.id}" style="display: none; margin-top: 6px;">
+            ${services.length === 0 ? `
+              <div style="font-size:0.8rem; color:var(--text-muted); padding:8px 0;">
+                Brak wpisów serwisowych dla tej maszyny. Kliknij <strong>🛠️ Dodaj Serwis</strong>, aby zapisać wymianę oleju lub naprawę!
+              </div>
+            ` : services.map(s => {
+              const sDate = new Date(s.date + 'T00:00:00').toLocaleDateString('pl-PL', { day:'numeric', month:'short', year:'numeric' });
+              let sTypeBadge = 'var(--text-secondary)';
+              if (s.serviceType === 'Wymiana oleju i filtrów') sTypeBadge = '#22c55e';
+              else if (s.serviceType === 'Naprawa / Awaria') sTypeBadge = '#ef4444';
+              else if (s.serviceType === 'Przegląd techniczny') sTypeBadge = '#38bdf8';
+              else if (s.serviceType === 'Wymiana części') sTypeBadge = '#eab308';
+
+              return `
+                <div class="machine-service-item">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                      <span class="service-type-badge" style="background:rgba(255,255,255,0.08); color:${sTypeBadge}; border:1px solid ${sTypeBadge};">
+                        ${escapeHTML(s.serviceType)}
+                      </span>
+                      <strong style="font-size:0.85rem; color:var(--heading-color);">📅 ${sDate}</strong>
+                      ${s.hours ? `<span style="font-size:0.8rem; color:var(--primary); font-weight:700;">• ${s.hours} Mth</span>` : ''}
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      ${s.cost ? `<strong style="font-size:0.9rem; color:var(--primary);">${parseFloat(s.cost).toLocaleString('pl-PL')} zł</strong>` : ''}
+                      <button class="icon-btn btn-service-del" data-id="${s.id}" title="Usuń wpis" style="width:26px; height:26px; font-size:0.75rem; color:var(--accent-red); padding:0;">
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.4;">
+                    <div>${escapeHTML(s.desc)}</div>
+                    ${s.performedBy ? `<div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">Wykonawca: ${escapeHTML(s.performedBy)}</div>` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  // Podpięcia interakcji
+  container.querySelectorAll('.machine-services-toggle').forEach(btn => {
+    btn.onclick = () => {
+      const targetId = btn.dataset.target;
+      const targetEl = document.getElementById(targetId);
+      const arrow = btn.querySelector('.services-toggle-arrow');
+      if (targetEl) {
+        if (targetEl.style.display === 'none') {
+          targetEl.style.display = 'block';
+          if (arrow) arrow.textContent = '▲';
+        } else {
+          targetEl.style.display = 'none';
+          if (arrow) arrow.textContent = '▼';
+        }
+      }
+    };
+  });
+
+  container.querySelectorAll('.btn-mach-quick-mth').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      openUpdateMthModal(btn.dataset.id);
+    };
+  });
+
+  container.querySelectorAll('.btn-mach-add-service').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      openMachineServiceModal(btn.dataset.id);
+    };
+  });
+
+  container.querySelectorAll('.btn-mach-edit').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const m = machines.find(x => x.id === btn.dataset.id);
+      if (m) openMachineModal(m);
+    };
+  });
+
+  container.querySelectorAll('.btn-mach-del').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      deleteMachine(btn.dataset.id);
+    };
+  });
+
+  container.querySelectorAll('.btn-service-del').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      deleteMachineService(btn.dataset.id);
+    };
+  });
+}
+
+function openMachineModal(machine = null) {
+  const modal = document.getElementById('machine-modal');
+  const title = document.getElementById('machine-modal-title');
+  const form = document.getElementById('machine-form');
+
+  if (!modal || !form) return;
+  form.reset();
+
+  if (machine && machine.id) {
+    if (title) title.textContent = '✏️ Edytuj Maszynę / Sprzęt';
+    document.getElementById('machine-edit-id').value = machine.id;
+    document.getElementById('machine-name').value = machine.name || '';
+    document.getElementById('machine-type').value = machine.type || 'Ciągnik';
+    document.getElementById('machine-reg').value = machine.regNo || '';
+    document.getElementById('machine-hours').value = machine.hours != null ? machine.hours : '';
+    document.getElementById('machine-inspection-date').value = machine.inspectionDate || '';
+    document.getElementById('machine-last-oil-hours').value = machine.lastOilHours != null ? machine.lastOilHours : '';
+    document.getElementById('machine-oil-interval').value = machine.oilInterval || 250;
+    document.getElementById('machine-notes').value = machine.notes || '';
+  } else {
+    if (title) title.textContent = '🚜 Dodaj Maszynę / Ciągnik';
+    document.getElementById('machine-edit-id').value = '';
+    document.getElementById('machine-oil-interval').value = 250;
+  }
+
+  modal.classList.add('active');
+}
+
+function closeMachineModal() {
+  const modal = document.getElementById('machine-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveMachineFromModal() {
+  const id = document.getElementById('machine-edit-id').value;
+  const name = document.getElementById('machine-name').value.trim();
+  const type = document.getElementById('machine-type').value;
+  const regNo = document.getElementById('machine-reg').value.trim();
+  const hours = parseInt(document.getElementById('machine-hours').value) || 0;
+  const inspectionDate = document.getElementById('machine-inspection-date').value;
+  const lastOilHours = parseInt(document.getElementById('machine-last-oil-hours').value) || 0;
+  const oilInterval = parseInt(document.getElementById('machine-oil-interval').value) || 250;
+  const notes = document.getElementById('machine-notes').value.trim();
+
+  if (!name) {
+    showToast('Wpisz nazwę maszyny!');
+    return;
+  }
+
+  if (id) {
+    const idx = machines.findIndex(m => m.id === id);
+    if (idx !== -1) {
+      machines[idx] = {
+        ...machines[idx],
+        name,
+        type,
+        regNo,
+        hours,
+        inspectionDate,
+        lastOilHours,
+        oilInterval,
+        notes
+      };
+      showToast('Zaktualizowano dane maszyny!');
+    }
+  } else {
+    const newMachine = {
+      id: 'mach_' + Date.now(),
+      name,
+      type,
+      regNo,
+      hours,
+      inspectionDate,
+      lastOilHours,
+      oilInterval,
+      notes,
+      createdAt: new Date().toISOString()
+    };
+    machines.push(newMachine);
+    showToast('Dodano nową maszynę do bazy!');
+  }
+
+  saveMachinesData();
+  closeMachineModal();
+  renderMachinesStats();
+  renderMachinesList();
+}
+
+function deleteMachine(id) {
+  const m = machines.find(x => x.id === id);
+  const name = m ? m.name : 'maszynę';
+  if (confirm(`Czy na pewno chcesz usunąć "${name}" wraz z całą jej historią serwisową?`)) {
+    machines = machines.filter(x => x.id !== id);
+    machineServices = machineServices.filter(s => s.machineId !== id);
+    saveMachinesData();
+    saveMachineServicesData();
+    renderMachinesStats();
+    renderMachinesList();
+    showToast('Usunięto maszynę z bazy.');
+  }
+}
+
+function openMachineServiceModal(machineId) {
+  const modal = document.getElementById('machine-service-modal');
+  const form = document.getElementById('machine-service-form');
+  const m = machines.find(x => x.id === machineId);
+
+  if (!modal || !form) return;
+  form.reset();
+
+  document.getElementById('service-machine-id').value = machineId;
+  document.getElementById('service-date').value = new Date().toISOString().split('T')[0];
+  if (m) {
+    document.getElementById('service-hours').value = m.hours || '';
+  }
+
+  modal.classList.add('active');
+}
+
+function closeMachineServiceModal() {
+  const modal = document.getElementById('machine-service-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveMachineServiceFromModal() {
+  const machineId = document.getElementById('service-machine-id').value;
+  const serviceType = document.getElementById('service-type').value;
+  const date = document.getElementById('service-date').value;
+  const hours = parseInt(document.getElementById('service-hours').value) || 0;
+  const cost = parseFloat(document.getElementById('service-cost').value) || 0;
+  const performedBy = document.getElementById('service-performed-by').value.trim();
+  const desc = document.getElementById('service-desc').value.trim();
+
+  if (!date || !desc) {
+    showToast('Podaj datę i opis wykonanych prac!');
+    return;
+  }
+
+  const newService = {
+    id: 'serv_' + Date.now(),
+    machineId,
+    serviceType,
+    date,
+    hours,
+    cost,
+    performedBy,
+    desc,
+    createdAt: new Date().toISOString()
+  };
+
+  machineServices.unshift(newService);
+
+  // Jeśli to wymiana oleju, automatycznie zaktualizuj lastOilHours maszyny!
+  const m = machines.find(x => x.id === machineId);
+  if (m) {
+    if (hours > (m.hours || 0)) {
+      m.hours = hours;
+    }
+    if (serviceType === 'Wymiana oleju i filtrów' && hours > 0) {
+      m.lastOilHours = hours;
+    }
+    saveMachinesData();
+  }
+
+  saveMachineServicesData();
+  closeMachineServiceModal();
+  renderMachinesStats();
+  renderMachinesList();
+  showToast('✅ Zapisano wpis serwisowy!');
+}
+
+function deleteMachineService(serviceId) {
+  if (confirm('Czy na pewno chcesz usunąć ten wpis serwisowy?')) {
+    machineServices = machineServices.filter(s => s.id !== serviceId);
+    saveMachineServicesData();
+    renderMachinesStats();
+    renderMachinesList();
+    showToast('Usunięto wpis serwisowy.');
+  }
+}
+
+function openUpdateMthModal(machineId) {
+  const modal = document.getElementById('machine-update-mth-modal');
+  const form = document.getElementById('machine-update-mth-form');
+  const label = document.getElementById('mth-machine-label');
+  const input = document.getElementById('mth-input-value');
+  const m = machines.find(x => x.id === machineId);
+
+  if (!modal || !m) return;
+  if (form) form.reset();
+
+  document.getElementById('mth-machine-id').value = machineId;
+  if (label) label.textContent = `${m.name} (Dotychczas: ${m.hours || 0} Mth)`;
+  if (input) {
+    input.value = m.hours || 0;
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 150);
+  }
+
+  modal.classList.add('active');
+}
+
+function closeUpdateMthModal() {
+  const modal = document.getElementById('machine-update-mth-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveMthFromModal() {
+  const machineId = document.getElementById('mth-machine-id').value;
+  const newHours = parseInt(document.getElementById('mth-input-value').value);
+
+  if (isNaN(newHours) || newHours < 0) {
+    showToast('Wpisz poprawną wartość motogodzin!');
+    return;
+  }
+
+  const m = machines.find(x => x.id === machineId);
+  if (m) {
+    m.hours = newHours;
+    saveMachinesData();
+    renderMachinesStats();
+    renderMachinesList();
+    showToast(`⏱️ Zaktualizowano licznik: ${newHours} Mth dla ${m.name}`);
+  }
+
+  closeUpdateMthModal();
+}
+
 
 
 

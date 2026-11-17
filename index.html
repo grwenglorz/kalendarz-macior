@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-title" content="GR Wenglorz">
   <link rel="apple-touch-icon" href="logo.jpg">
   
-  <link rel="stylesheet" href="styles.css?v=76">
+  <link rel="stylesheet" href="styles.css?v=78">
 </head>
 <body>
 
@@ -44,6 +44,11 @@
       </div>
 
       <main class="main-content" style="padding-bottom: 30px;">
+        <!-- KONTENER DLA: PULPIT GOSPODARSTWA -->
+        <div id="farm-dashboard-container">
+          <!-- Generowane przez renderFarmDashboard() w app.js -->
+        </div>
+
         <div style="font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 14px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
           Wybierz dział gospodarstwa:
         </div>
@@ -55,6 +60,16 @@
             <div class="lobby-card-content">
               <div class="lobby-card-title">ŚWINIE</div>
               <div class="lobby-card-desc">Kalkulator wyproszeń, rejestr macior i terminarz porodów</div>
+            </div>
+            <div class="lobby-card-arrow">➜</div>
+          </button>
+
+          <!-- KAFEL: MASZYNY I SPRZĘT -->
+          <button id="btn-open-machines" class="lobby-card lobby-card-machines">
+            <div class="lobby-card-icon">🚜</div>
+            <div class="lobby-card-content">
+              <div class="lobby-card-title">MASZYNY I SPRZĘT</div>
+              <div class="lobby-card-desc">Ciągniki, motogodziny, przeglądy, oleje i historia napraw</div>
             </div>
             <div class="lobby-card-arrow">➜</div>
           </button>
@@ -78,6 +93,75 @@
             </div>
             <div class="lobby-card-arrow">➜</div>
           </button>
+        </div>
+      </main>
+    </div>
+
+    <!-- ==========================================
+         EKRAN: MODUŁ MASZYNY I SPRZĘT
+         ========================================== -->
+    <div id="screen-machines" class="screen">
+      <header class="app-header">
+        <div class="brand">
+          <button class="icon-btn" id="btn-back-lobby-machines" title="Wróć do Pulpitu" style="margin-right: 4px; font-size: 1rem;">
+            <span>🏠</span>
+          </button>
+          <div class="brand-text">
+            <h1>Maszyny i Sprzęt</h1>
+            <p>Ewidencja, Serwis i Motogodziny</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn btn-toggle-theme-global" title="Zmień motyw">☀️</button>
+        </div>
+      </header>
+
+      <!-- BADGE STATUSU CHMURY W MASZYNACH -->
+      <div id="cloud-badge-wrapper-machines" style="padding: 6px 16px; text-align: center; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: block;">
+        <span id="cloud-status-badge-machines" class="badge" style="font-size: 0.78rem;">⚪ Chmura nieaktywna</span>
+      </div>
+
+      <main class="main-content" style="padding-bottom: 30px;">
+        <!-- STATYSTYKI MASZYN -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+          <div class="stat-card">
+            <div class="stat-card-value" id="stats-machines-count">0</div>
+            <div class="stat-card-label">Maszyn</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-value" id="stats-machines-due" style="color: var(--accent-gold);">0</div>
+            <div class="stat-card-label">Przeglądy / Oleje</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-value" id="stats-machines-repairs-cost" style="color: var(--primary); font-size: 1.1rem;">0 zł</div>
+            <div class="stat-card-label">Koszty serwisu</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+          <h2 style="font-size: 1.05rem; font-weight: 800; color: var(--heading-color); margin: 0;">🚜 Park Maszynowy</h2>
+          <button class="btn btn-primary" id="btn-add-machine" style="width: auto; padding: 6px 14px; font-size: 0.8rem; font-weight: 800; border-radius: 8px; cursor: pointer;">
+            <span>➕ Dodaj Maszynę</span>
+          </button>
+        </div>
+
+        <!-- WYSZUKIWARKA I FILTRY -->
+        <div class="search-filter-bar" style="margin-bottom: 10px;">
+          <input type="text" id="machine-search-input" class="form-control" placeholder="🔍 Szukaj maszyny (np. John Deere, Ursus, pług)...">
+        </div>
+
+        <div class="filter-chips" id="machine-filter-chips" style="margin-bottom: 14px;">
+          <button class="chip active" data-machine-filter="all">Wszystkie</button>
+          <button class="chip" data-machine-filter="Ciągnik">🚜 Ciągniki</button>
+          <button class="chip" data-machine-filter="Kombajn">🌾 Kombajny</button>
+          <button class="chip" data-machine-filter="Opryskiwacz">🧪 Opryskiwacze</button>
+          <button class="chip" data-machine-filter="Maszyna">⚙️ Maszyny</button>
+          <button class="chip" data-machine-filter="Przyczepa">🚛 Przyczepy</button>
+        </div>
+
+        <!-- LISTA MASZYN -->
+        <div id="machines-container">
+          <!-- Renderowane przez renderMachinesList() w app.js -->
         </div>
       </main>
     </div>
@@ -742,6 +826,188 @@
     </div>
   </div>
 
-  <script src="app.js?v=76"></script>
+  <!-- MODAL DODAWANIA ZADANIA GOSPODARSTWA -->
+  <div class="modal-overlay" id="farm-task-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 16px; color: var(--heading-color);">📝 Dodaj Zadanie Gospodarstwa</h3>
+      <form id="farm-task-form">
+        <div class="form-group">
+          <label for="task-title">Treść zadania:*</label>
+          <input type="text" id="task-title" class="form-control" required placeholder="np. Przegląd ciągnika, Sprawdzenie maciory nr 12">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="task-due">Termin:*</label>
+            <input type="text" id="task-due" class="form-control" required placeholder="np. Jutro, Za 3 dni, 20.11">
+          </div>
+          <div class="form-group">
+            <label for="task-priority">Priorytet:*</label>
+            <select id="task-priority" class="form-control">
+              <option value="urgent">🔴 Pilne</option>
+              <option value="planned" selected>🔵 Planowane</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="task-icon">Kategoria / Ikona:*</label>
+          <select id="task-icon" class="form-control">
+            <option value="🚜">🚜 Maszyny i Ciągnik</option>
+            <option value="🐖">🐖 Chlew i Maciory</option>
+            <option value="🌾">🌾 Pola i Uprawy</option>
+            <option value="📅" selected>📅 Sprawdzenie / Kontrola</option>
+            <option value="🔧">🔧 Warsztat i Naprawy</option>
+            <option value="📦">📦 Zakupy i Pasza</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-task-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Dodaj Zadanie</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DODAWANIA / EDYCJI MASZYNY -->
+  <div class="modal-overlay" id="machine-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 16px; color: var(--heading-color);" id="machine-modal-title">🚜 Dodaj Maszynę / Ciągnik</h3>
+      <form id="machine-form">
+        <input type="hidden" id="machine-edit-id">
+
+        <div class="form-group">
+          <label for="machine-name">Nazwa i Model:*</label>
+          <input type="text" id="machine-name" class="form-control" required placeholder="np. John Deere 6120M, Ursus C-360">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="machine-type">Typ sprzętu:*</label>
+            <select id="machine-type" class="form-control">
+              <option value="Ciągnik" selected>🚜 Ciągnik</option>
+              <option value="Kombajn">🌾 Kombajn</option>
+              <option value="Opryskiwacz">🧪 Opryskiwacz</option>
+              <option value="Maszyna">⚙️ Maszyna uprawowa / siewnik</option>
+              <option value="Przyczepa">🚛 Przyczepa</option>
+              <option value="Ładowarka">🏗️ Ładowarka / Teleskop</option>
+              <option value="Inny">📋 Inny sprzęt</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="machine-reg">Nr rej. / Identyfikator:</label>
+            <input type="text" id="machine-reg" class="form-control" placeholder="np. SR 12345">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="machine-hours">Licznik motogodzin (Mth):</label>
+            <input type="number" id="machine-hours" class="form-control" min="0" step="1" placeholder="np. 3450">
+          </div>
+          <div class="form-group">
+            <label for="machine-inspection-date">Termin przeglądu / OC:</label>
+            <input type="date" id="machine-inspection-date" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="machine-last-oil-hours">Ostatnia wymiana oleju (Mth):</label>
+            <input type="number" id="machine-last-oil-hours" class="form-control" min="0" step="1" placeholder="np. 3250">
+          </div>
+          <div class="form-group">
+            <label for="machine-oil-interval">Wymiana oleju co ile Mth:</label>
+            <input type="number" id="machine-oil-interval" class="form-control" min="50" step="10" value="250" placeholder="np. 250">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="machine-notes">Uwagi / Wyposażenie:</label>
+          <input type="text" id="machine-notes" class="form-control" placeholder="np. Nowe opony, filtr kabinowy wymieniony">
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-machine-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-machine">Zapisz Maszynę</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DODAWANIA SERWISU / NAPRAWY DLA MASZYNY -->
+  <div class="modal-overlay" id="machine-service-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 16px; color: var(--heading-color);" id="machine-service-modal-title">🛠️ Dodaj Wpis Serwisowy / Naprawę</h3>
+      <form id="machine-service-form">
+        <input type="hidden" id="service-machine-id">
+
+        <div class="form-group">
+          <label for="service-type">Rodzaj czynności:*</label>
+          <select id="service-type" class="form-control">
+            <option value="Wymiana oleju i filtrów" selected>🛢️ Wymiana oleju i filtrów</option>
+            <option value="Przegląd techniczny">📋 Przegląd techniczny / UDT / OC</option>
+            <option value="Naprawa / Awaria">🔧 Naprawa / Awaria</option>
+            <option value="Wymiana części">⚙️ Wymiana części eksploatacyjnych</option>
+            <option value="Inne">📝 Inne prace serwisowe</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="service-date">Data czynności:*</label>
+            <input type="date" id="service-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="service-hours">Stan motogodzin (Mth):</label>
+            <input type="number" id="service-hours" class="form-control" min="0" step="1" placeholder="np. 3500">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="service-cost">Koszt naprawy / części (zł):</label>
+            <input type="number" id="service-cost" class="form-control" min="0" step="0.01" placeholder="np. 450">
+          </div>
+          <div class="form-group">
+            <label for="service-performed-by">Kto wykonywał:</label>
+            <input type="text" id="service-performed-by" class="form-control" placeholder="np. Warsztat / Samodzielnie">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="service-desc">Opis wykonanych prac i części:*</label>
+          <textarea id="service-desc" class="form-control" rows="2" required placeholder="np. Olej 15W40 12L, filtr oleju Mann, filtr paliwa"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-service-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Zapisz Wpis</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL SZYBKIEJ AKTUALIZACJI MOTOGODZIN -->
+  <div class="modal-overlay" id="machine-update-mth-modal">
+    <div class="modal-card" style="max-width: 360px;">
+      <h3 style="margin-bottom: 14px; color: var(--heading-color);">⏱️ Aktualizuj Motogodziny</h3>
+      <form id="machine-update-mth-form">
+        <input type="hidden" id="mth-machine-id">
+        <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:10px;" id="mth-machine-label"></div>
+        <div class="form-group">
+          <label for="mth-input-value">Aktualny stan licznika (Mth):*</label>
+          <input type="number" id="mth-input-value" class="form-control" min="0" step="1" required style="font-size:1.2rem; font-weight:800; text-align:center;">
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 16px;">
+          <button type="button" class="btn btn-secondary" id="btn-close-mth-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js?v=78"></script>
 </body>
 </html>
